@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/app/lib/supabaseClient'
+import { getSupabaseBrowser } from '@/app/lib/supabaseClient'
 
 export default function ConfirmPage() {
 	const [message, setMessage] = useState('Confirmando, por favor espera...')
@@ -9,7 +9,7 @@ export default function ConfirmPage() {
 		async function run() {
 			try {
 				// Algunos flujos necesitan intercambiar el código por sesión
-				await supabase.auth.getSession()
+				await getSupabaseBrowser().auth.getSession()
 				setMessage('¡Listo! Tu cuenta fue confirmada. Ya puedes cerrar esta pestaña.')
 			} catch {
 				setMessage('Revisa tu correo y sigue el enlace de confirmación.')

@@ -1,10 +1,10 @@
 'use client'
 
-import { supabase } from '@/app/lib/supabaseClient'
+import { getSupabaseBrowser } from '@/app/lib/supabaseClient'
 
 export default function LogoutButton() {
 	async function handleLogout() {
-		await supabase.auth.signOut()
+		await getSupabaseBrowser().auth.signOut()
 		window.location.href = '/auth'
 	}
 	return (

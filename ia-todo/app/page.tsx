@@ -13,7 +13,13 @@ export default async function Home() {
 			<div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
 				<main className="flex w-full max-w-2xl flex-col items-center gap-6 py-24 px-6 text-center">
 					<h1 className="text-3xl font-semibold text-black dark:text-zinc-50">Bienvenido a tu gestor de tareas</h1>
-					<p className="text-zinc-600 dark:text-zinc-400">La mejor opción para manejar tus tareas. Inicia sesión desde la pestaña Auth para comenzar.</p>
+					<p className="text-zinc-600 dark:text-zinc-400">La mejor opción para manejar tus tareas. Inicia sesión para comenzar.</p>
+					<a
+						href="/auth/login"
+						className="rounded-md border px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-900"
+					>
+						Iniciar sesión
+					</a>
 				</main>
 			</div>
 		)
