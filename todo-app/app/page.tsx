@@ -74,7 +74,8 @@ export default function Home() {
         .order("created_at", { ascending: true });
       const safeFolders = (fRows ?? []) as Folder[];
       setFolders(safeFolders);
-      setActiveFolderId(safeFolders[0]?.id ?? null);
+      // Siempre empezar con "Todas" (null) como carpeta por defecto
+      setActiveFolderId(null);
       setLoading(false);
     })();
     return () => {
@@ -269,7 +270,7 @@ export default function Home() {
     <div className="min-h-dvh bg-white text-black dark:bg-black dark:text-white">
       {/* Navbar superior, separado del contenido */}
       <div className="sticky top-0 z-20 w-full border-b border-neutral-200 bg-white/80 backdrop-blur dark:border-neutral-800 dark:bg-black/80">
-        <div className="mx-auto w-full max-w-5xl px-6 py-4 md:px-8">
+        <div className="mx-auto w-full max-w-5xl px-4 py-3 md:px-8 md:py-4">
           <Navbar
             displayName={displayName}
             onSignOut={signOut}
@@ -282,7 +283,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="mx-auto flex w-full max-w-5xl gap-6 px-6 py-6 md:px-8 md:py-8">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-6 md:flex-row md:px-8 md:py-8">
         <Sidebar
           folders={folders}
           counts={folderCounts}
@@ -328,9 +329,9 @@ export default function Home() {
           }}
         />
 
-        <main className="flex-1">
+        <main className="flex-1 md:max-w-none">
           <header className="mb-6 flex items-center justify-between">
-            <h1 className="text-3xl font-semibold">
+            <h1 className="text-2xl font-semibold md:text-3xl">
               {folders.find((f) => f.id === activeFolderId)?.name || "Todas"}
             </h1>
           </header>
@@ -396,7 +397,7 @@ export default function Home() {
         </main>
         
       </div>
-      <BotFab onClick={() => setAgentOpen(true)} />
+      {!agentOpen && <BotFab onClick={() => setAgentOpen(true)} />}
       <AgentChatModal
         open={agentOpen}
         onClose={() => setAgentOpen(false)}

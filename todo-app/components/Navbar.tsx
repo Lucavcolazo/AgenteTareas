@@ -23,15 +23,15 @@ export function Navbar({
   const initial = (name || "U").charAt(0).toUpperCase();
 
   return (
-    <nav className="mb-6 flex items-center justify-between">
-      <h1 className="text-xl font-semibold">To‑Do</h1>
+    <nav className="mb-4 flex items-center justify-between md:mb-6">
+      <h1 className="text-lg font-semibold md:text-xl">Task IA</h1>
       <div className="relative">
         <button
           onClick={() => router.push("/profile")}
-          className="flex items-center gap-3 rounded-full border border-neutral-300 px-2 py-1.5 transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900"
+          className="flex items-center gap-2 rounded-full border border-neutral-300 px-1.5 py-1 transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900 md:gap-3 md:px-2 md:py-1.5"
         >
-          <span className="text-sm opacity-80 hidden sm:inline">{name}</span>
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-neutral-200 text-black dark:bg-neutral-800 dark:text-white">
+          <span className="text-xs opacity-80 hidden sm:inline md:text-sm">{name}</span>
+          <span className="grid h-7 w-7 place-items-center rounded-full bg-neutral-200 text-xs font-medium text-black dark:bg-neutral-800 dark:text-white md:h-8 md:w-8 md:text-sm">
             {initial}
           </span>
         </button>

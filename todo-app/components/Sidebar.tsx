@@ -44,14 +44,45 @@ export function Sidebar({
     }
   }
   return (
-    <aside className="w-full max-w-[240px] shrink-0 border-r border-neutral-200 pr-4 dark:border-neutral-800">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xs font-semibold tracking-wide uppercase opacity-70">Carpetas</h2>
-        <button onClick={onCreate} className="rounded-lg p-1.5 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-900">
-          <FolderPlus className="h-4 w-4" />
-        </button>
+    <>
+      {/* Vista móvil: dropdown */}
+      <div className="mb-4 w-full md:hidden">
+        <div className="flex items-center gap-2">
+          <select
+            value={activeId === null ? "" : activeId ?? ""}
+            onChange={(e) => {
+              const value = e.target.value;
+              onSelect(value === "" ? null : value === "__none__" ? "__none__" : value);
+            }}
+            className="flex-1 rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-black dark:focus:ring-neutral-700"
+          >
+            <option value="">Todas ({counts["__all__"] ?? 0})</option>
+            <option value="__none__">Sin carpeta ({counts["__none__"] ?? 0})</option>
+            {folders.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name} ({counts[f.id] ?? 0})
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={onCreate}
+            className="rounded-xl border border-neutral-300 bg-white p-2 transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:bg-black dark:hover:bg-neutral-900"
+            title="Crear carpeta"
+          >
+            <FolderPlus className="h-4 w-4" />
+          </button>
+        </div>
       </div>
-      <nav className="space-y-1">
+
+      {/* Vista desktop: sidebar */}
+      <aside className="hidden w-full max-w-[240px] shrink-0 border-r border-neutral-200 pr-4 dark:border-neutral-800 md:block">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xs font-semibold tracking-wide uppercase opacity-70">Carpetas</h2>
+          <button onClick={onCreate} className="rounded-lg p-1.5 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-900">
+            <FolderPlus className="h-4 w-4" />
+          </button>
+        </div>
+        <nav className="space-y-1">
         {/* Todas */}
         <button
           onClick={() => onSelect(null)}
@@ -156,7 +187,8 @@ export function Sidebar({
           );
         })}
       </nav>
-    </aside>
+      </aside>
+    </>
   );
 }
 

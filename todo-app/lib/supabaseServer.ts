@@ -4,8 +4,12 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import type { Database } from "@/types/database";
 
 export async function supabaseServer() {
+  // Crear un contexto que tenga el método cookies() que retorne el cookieStore
   const cookieStore = await cookies();
-  return createRouteHandlerClient<Database>({ cookies: async () => cookieStore });
+  const context = {
+    cookies: () => cookieStore
+  };
+  return createRouteHandlerClient<Database>(context);
 }
 
 

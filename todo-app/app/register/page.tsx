@@ -27,12 +27,12 @@ export default function RegisterPage() {
   }, [router, supabase]);
 
   return (
-    <div className="min-h-dvh grid place-items-center bg-white text-black dark:bg-black dark:text-white">
+    <div className="min-h-dvh grid place-items-center bg-white px-4 text-black dark:bg-black dark:text-white">
       <div className="flex w-full max-w-3xl flex-col items-center">
-        <h1 className="bg-gradient-to-b from-neutral-300 to-neutral-600 bg-clip-text text-5xl font-extrabold tracking-tight text-transparent sm:text-6xl animate-drop">
+        <h1 className="bg-gradient-to-b from-neutral-300 to-neutral-600 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-5xl md:text-6xl animate-drop">
           Crea tu cuenta
         </h1>
-        <div className="mt-12 animate-fade-up" style={{ animationDelay: "600ms" }}>
+        <div className="mt-8 w-full animate-fade-up sm:mt-12" style={{ animationDelay: "600ms" }}>
           <AuthCard defaultMode="register" singleMode />
         </div>
       </div>

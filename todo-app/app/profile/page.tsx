@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { GoogleCalendarButton } from "@/components/GoogleCalendarButton";
-import { ArrowLeft, Calendar, Mail, Clock } from "lucide-react";
+import { ArrowLeft, Calendar, Mail, Clock, LogOut } from "lucide-react";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -93,8 +93,13 @@ export default function ProfilePage() {
 
   if (!userInfo) return null;
 
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    router.replace("/login");
+  }
+
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
+    <div className="mx-auto max-w-2xl px-4 py-4 md:py-8">
       <button
         onClick={() => router.push("/")}
         className="mb-6 flex items-center gap-2 text-sm opacity-70 hover:opacity-100"
@@ -103,7 +108,7 @@ export default function ProfilePage() {
         <span>Volver</span>
       </button>
 
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         <div>
           <h1 className="text-2xl font-semibold">Perfil</h1>
           <p className="mt-1 text-sm opacity-60">Información de tu cuenta</p>
@@ -131,7 +136,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-black">
+        <div className="rounded-xl border border-neutral-200 bg-white p-4 md:p-6 dark:border-neutral-800 dark:bg-black">
           <div className="mb-4 flex items-center gap-2">
             <Calendar className="h-5 w-5 opacity-70" />
             <h3 className="text-lg font-medium">Google Calendar</h3>
@@ -145,6 +150,17 @@ export default function ProfilePage() {
               ✓ Calendar conectado correctamente
             </p>
           )}
+        </div>
+
+        <div className="rounded-xl border border-neutral-200 bg-white p-4 md:p-6 dark:border-neutral-800 dark:bg-black">
+          <h3 className="mb-4 text-lg font-medium">Sesión</h3>
+          <button
+            onClick={handleSignOut}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-300 bg-transparent px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Cerrar sesión</span>
+          </button>
         </div>
       </div>
     </div>

@@ -2,7 +2,30 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabaseClient } from "@/lib/supabaseClient";
-import { Mic, MicOff } from "lucide-react";
+import { Mic, MicOff, ArrowLeft } from "lucide-react";
+import DOMPurify from "dompurify";
+
+// Función para sanitizar el contenido del LLM antes de renderizar
+// Elimina cualquier código HTML/JavaScript malicioso y escapa caracteres peligrosos
+function sanitizeContent(content: string): string {
+  if (typeof window === "undefined") {
+    // En el servidor, escapamos caracteres HTML básicos para prevenir XSS
+    return content
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#x27;");
+  }
+  // En el cliente, usamos DOMPurify para sanitización completa y robusta
+  // DOMPurify elimina cualquier código JavaScript, eventos, y tags HTML peligrosos
+  // Configuramos para permitir solo texto plano (sin HTML)
+  return DOMPurify.sanitize(content, {
+    ALLOWED_TAGS: [], // No permitir ningún tag HTML (solo texto)
+    ALLOWED_ATTR: [], // No permitir ningún atributo HTML
+    KEEP_CONTENT: true, // Mantener el contenido de texto pero eliminar tags
+  });
+}
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -56,7 +79,7 @@ declare global {
   }
 }
 
-export function AgentChat({ displayName, onTaskChange }: { displayName?: string | null; onTaskChange?: () => void }) {
+export function AgentChat({ displayName, onTaskChange, onClose }: { displayName?: string | null; onTaskChange?: () => void; onClose?: () => void }) {
   const supabase = supabaseClient();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -253,8 +276,27 @@ export function AgentChat({ displayName, onTaskChange }: { displayName?: string 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: next }),
       });
-      const json = await res.json();
-      const assistantMsg: Msg = { role: "assistant", content: json.message ?? "" };
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Error del servidor:", res.status, errorText);
+        throw new Error(`Error ${res.status}: ${errorText || "Error del servidor"}`);
+      }
+      
+      const text = await res.text();
+      if (!text) {
+        throw new Error("Respuesta vacía del servidor");
+      }
+      
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch (parseErr) {
+        console.error("Error parseando JSON:", parseErr, "Respuesta:", text);
+        throw new Error("Respuesta inválida del servidor");
+      }
+      
+      const assistantMsg: Msg = { role: "assistant", content: json.message ?? "No se pudo obtener una respuesta." };
       setMessages((m) => [...m, assistantMsg]);
       await saveMessage("assistant", assistantMsg.content);
       // Hacer scroll al final después de agregar el mensaje del asistente
@@ -267,19 +309,31 @@ export function AgentChat({ displayName, onTaskChange }: { displayName?: string 
       }
     } catch (err) {
       console.error("Error en chat:", err);
-      setMessages((m) => [...m, { role: "assistant", content: "Error al procesar tu mensaje. Intenta de nuevo." }]);
+      const errorMessage = err instanceof Error ? err.message : "Error al procesar tu mensaje. Intenta de nuevo.";
+      setMessages((m) => [...m, { role: "assistant", content: `Error: ${errorMessage}` }]);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="flex h-full flex-col rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-black">
+    <div className="flex h-full w-full flex-col rounded-none border-0 bg-white dark:bg-black md:rounded-xl md:border md:border-neutral-200 dark:md:border-neutral-800">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-green-500"></div>
-          <div className="text-sm font-medium">Asistente de tareas</div>
+      <div className="flex items-center justify-between border-b border-neutral-200 px-3 py-2.5 dark:border-neutral-800 md:px-4 md:py-3">
+        <div className="flex items-center gap-3">
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-900 md:hidden"
+              title="Cerrar chat"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          )}
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-green-500"></div>
+            <div className="text-xs font-medium md:text-sm">Asistente de tareas</div>
+          </div>
         </div>
         {messages.length > 0 && (
           <button
@@ -289,16 +343,17 @@ export function AgentChat({ displayName, onTaskChange }: { displayName?: string 
               localStorage.setItem("agent_session_id", newSessionId);
               setMessages([]);
             }}
-            className="text-xs rounded-lg px-2 py-1 text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-900"
+            className="rounded-lg px-2 py-1 text-[10px] text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-900 md:text-xs"
             title="Nueva conversación"
           >
-            Nueva conversación
+            <span className="hidden md:inline">Nueva conversación</span>
+            <span className="md:hidden">Nueva</span>
           </button>
         )}
       </div>
 
       {/* Messages area */}
-      <div ref={messagesContainerRef} className="flex-1 space-y-4 overflow-auto px-4 py-4">
+      <div ref={messagesContainerRef} className="flex-1 min-h-0 space-y-3 overflow-y-auto overflow-x-hidden px-2 py-3 md:space-y-4 md:px-4 md:py-4" style={{ WebkitOverflowScrolling: 'touch' }}>
         {loadingHistory ? (
           <div className="flex items-center justify-center py-8">
             <div className="text-sm opacity-60">Cargando historial…</div>
@@ -315,16 +370,22 @@ export function AgentChat({ displayName, onTaskChange }: { displayName?: string 
             {messages.map((m, i) => (
               <div
                 key={i}
-                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex w-full ${m.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
+                  className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs break-words overflow-hidden md:max-w-[75%] md:px-4 md:py-2.5 md:text-sm ${
                     m.role === "user"
                       ? "bg-black text-white dark:bg-white dark:text-black"
                       : "bg-neutral-100 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100"
                   }`}
+                  style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
                 >
-                  <div className="whitespace-pre-wrap">{m.content}</div>
+                  <div 
+                    className="whitespace-pre-wrap break-words" 
+                    style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                  >
+                    {sanitizeContent(m.content)}
+                  </div>
                 </div>
               </div>
             ))}
@@ -346,8 +407,8 @@ export function AgentChat({ displayName, onTaskChange }: { displayName?: string 
       </div>
 
       {/* Input area */}
-      <div className="border-t border-neutral-200 px-4 py-3 dark:border-neutral-800">
-        <div className="flex gap-2">
+      <div className="border-t border-neutral-200 bg-white px-2 py-2 dark:border-neutral-800 dark:bg-black md:px-4 md:py-3">
+        <div className="flex gap-1.5 md:gap-2">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -359,13 +420,13 @@ export function AgentChat({ displayName, onTaskChange }: { displayName?: string 
             }}
             placeholder="Escribe una instrucción…"
             disabled={loading || isListening}
-            className="flex-1 rounded-xl border border-neutral-300 bg-transparent px-4 py-2.5 text-sm outline-none transition-all focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200 disabled:opacity-50 dark:border-neutral-700 dark:focus:border-neutral-600 dark:focus:ring-neutral-800"
+            className="flex-1 rounded-xl border border-neutral-300 bg-transparent px-3 py-2 text-xs outline-none transition-all focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200 disabled:opacity-50 dark:border-neutral-700 dark:focus:border-neutral-600 dark:focus:ring-neutral-800 md:px-4 md:py-2.5 md:text-sm"
           />
           {typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition) ? (
             <button
               onClick={isListening ? stopListening : startListening}
               disabled={loading}
-              className={`rounded-xl px-3 py-2.5 text-sm font-medium transition-opacity disabled:opacity-50 hover:opacity-90 ${
+              className={`rounded-xl px-2.5 py-2 text-xs font-medium transition-opacity disabled:opacity-50 hover:opacity-90 md:px-3 md:py-2.5 md:text-sm ${
                 isListening
                   ? "bg-red-600 text-white"
                   : "border border-neutral-300 bg-transparent text-neutral-700 dark:border-neutral-700 dark:text-neutral-300"
@@ -378,7 +439,7 @@ export function AgentChat({ displayName, onTaskChange }: { displayName?: string 
           <button
             onClick={send}
             disabled={loading || !input.trim() || isListening}
-            className="rounded-xl bg-black px-5 py-2.5 text-sm font-medium text-white transition-opacity disabled:opacity-50 hover:opacity-90 dark:bg-white dark:text-black"
+            className="rounded-xl bg-black px-4 py-2 text-xs font-medium text-white transition-opacity disabled:opacity-50 hover:opacity-90 dark:bg-white dark:text-black md:px-5 md:py-2.5 md:text-sm"
           >
             Enviar
           </button>

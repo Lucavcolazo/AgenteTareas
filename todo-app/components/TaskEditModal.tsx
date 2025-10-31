@@ -225,7 +225,7 @@ export function TaskEditModal({
 
   return (
     <Modal open={open} onClose={onClose} title="Editar tarea">
-      <div className="space-y-4">
+      <div className="space-y-3 md:space-y-4">
         <div className="space-y-2">
           <label className="text-sm opacity-70">Título</label>
           <input
@@ -276,9 +276,9 @@ export function TaskEditModal({
           </div>
         </div>
 
-        <div className="space-y-3 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+        <div className="space-y-3 rounded-xl border border-neutral-200 p-3 md:p-4 dark:border-neutral-800">
           <h3 className="text-sm font-medium opacity-70">Rango de tiempo</h3>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm opacity-70">Desde - Fecha</label>
               <input
@@ -318,24 +318,25 @@ export function TaskEditModal({
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {googleCalendarUrl ? (
             <button
               onClick={handleAddToCalendar}
               disabled={addingToCalendar}
-              className="flex items-center gap-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900 disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900 disabled:opacity-50"
               title="Agregar a Google Calendar"
             >
               <Calendar className="h-4 w-4" />
-              <span>{addingToCalendar ? "Agregando..." : "Agregar a Calendar"}</span>
+              <span className="hidden sm:inline">{addingToCalendar ? "Agregando..." : "Agregar a Calendar"}</span>
+              <span className="sm:hidden">{addingToCalendar ? "Agregando..." : "Calendar"}</span>
             </button>
           ) : (
-            <span className="text-sm opacity-50">Define rango de tiempo para Calendar</span>
+            <span className="text-xs opacity-50 sm:text-sm">Define rango de tiempo para Calendar</span>
           )}
 
           <div className="flex gap-2">
-            <button onClick={onClose} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700">Cancelar</button>
-            <button onClick={submit} className="rounded-xl bg-black px-3 py-2 text-sm text-white dark:bg-white dark:text-black">Guardar</button>
+            <button onClick={onClose} className="flex-1 rounded-xl border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 sm:flex-initial">Cancelar</button>
+            <button onClick={submit} className="flex-1 rounded-xl bg-black px-3 py-2 text-sm text-white dark:bg-white dark:text-black sm:flex-initial">Guardar</button>
           </div>
         </div>
       </div>
