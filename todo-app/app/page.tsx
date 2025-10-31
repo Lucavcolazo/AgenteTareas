@@ -8,6 +8,9 @@ import { useRouter } from "next/navigation";
 import { TaskItem } from "@/components/TaskItem";
 import { Sidebar } from "@/components/Sidebar";
 import { TaskComposer } from "@/components/TaskComposer";
+import { Navbar } from "@/components/Navbar";
+import { FolderCreateModal } from "@/components/FolderCreateModal";
+import { useToast } from "@/components/Toast";
 import type { Tables } from "@/types/database";
 
 type Task = Tables["tasks"]["Row"];
@@ -16,12 +19,16 @@ type Folder = Tables["folders"]["Row"];
 export default function Home() {
   const supabase = supabaseClient();
   const router = useRouter();
+  const { show } = useToast();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [folderModalOpen, setFolderModalOpen] = useState(false);
 
   // Cargar sesión y tareas del usuario
   useEffect(() => {
@@ -35,9 +42,11 @@ export default function Home() {
       }
       if (!isMounted) return;
       setUserEmail(user.email ?? null);
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
       const { data: rows } = await supabase
         .from("tasks")
-        .select("*")
+        .select("*", { count: "exact" })
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       setTasks(rows ?? []);
@@ -95,9 +104,14 @@ export default function Home() {
     if (error) {
       // Revertir si falla
       setTasks((prev) => prev.filter((t) => t.id !== optimistic.id));
+      show({ title: "Error al crear tarea", variant: "error" });
       return;
     }
-    setTasks((prev) => [data as Task, ...prev.filter((t) => t.id !== optimistic.id)]);
+    // Conservar props del optimista (p.ej. folder_id) si la respuesta no las trae
+    setTasks((prev) =>
+      prev.map((t) => (t.id === optimistic.id ? { ...t, ...(data as Partial<Task>) } : t))
+    );
+    show({ title: "Tarea creada", variant: "success" });
   }
 
   async function toggleTask(id: string, nextCompleted: boolean) {
@@ -108,14 +122,21 @@ export default function Home() {
       .eq("id", id);
     if (error) {
       setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, completed: !nextCompleted } : t)));
+      show({ title: "No se pudo actualizar la tarea", variant: "error" });
     }
+    else show({ title: nextCompleted ? "Tarea completada" : "Tarea marcada como pendiente", variant: "success" });
   }
 
   async function deleteTask(id: string) {
     const prev = tasks;
     setTasks((cur) => cur.filter((t) => t.id !== id));
     const { error } = await supabase.from("tasks").delete().eq("id", id);
-    if (error) setTasks(prev);
+    if (error) {
+      setTasks(prev);
+      show({ title: "No se pudo eliminar la tarea", variant: "error" });
+    } else {
+      show({ title: "Tarea eliminada", variant: "success" });
+    }
   }
 
   async function signOut() {
@@ -136,7 +157,22 @@ export default function Home() {
 
   return (
     <div className="min-h-dvh bg-white text-black dark:bg-black dark:text-white">
-      <div className="mx-auto flex w-full max-w-5xl gap-6 p-6 md:p-8">
+      {/* Navbar superior, separado del contenido */}
+      <div className="sticky top-0 z-20 w-full border-b border-neutral-200 bg-white/80 backdrop-blur dark:border-neutral-800 dark:bg-black/80">
+        <div className="mx-auto w-full max-w-5xl px-6 py-4 md:px-8">
+          <Navbar
+            email={userEmail}
+            onSignOut={signOut}
+            pageSize={pageSize}
+            onChangePageSize={(n) => {
+              setPageSize(n);
+              setPage(1);
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="mx-auto flex w-full max-w-5xl gap-6 px-6 py-6 md:px-8 md:py-8">
         <Sidebar
           folders={folders}
           counts={folderCounts}
@@ -146,8 +182,17 @@ export default function Home() {
             const { data: auth } = await supabase.auth.getUser();
             const userId = auth.user?.id;
             if (!userId) return;
-            const name = prompt("Nombre de la carpeta");
-            if (!name) return;
+            setFolderModalOpen(true);
+          }}
+        />
+
+        <FolderCreateModal
+          open={folderModalOpen}
+          onClose={() => setFolderModalOpen(false)}
+          onConfirm={async (name) => {
+            setFolderModalOpen(false);
+            const { data: auth } = await supabase.auth.getUser();
+            const userId = auth.user?.id!;
             const optimistic: Folder = {
               id: crypto.randomUUID(),
               user_id: userId,
@@ -162,10 +207,12 @@ export default function Home() {
               .single();
             if (error) {
               setFolders((f) => f.filter((x) => x.id !== optimistic.id));
+              show({ title: "No se pudo crear la carpeta", variant: "error" });
               return;
             }
             setFolders((f) => f.map((x) => (x.id === optimistic.id ? (data as Folder) : x)));
             setActiveFolderId((data as Folder).id);
+            show({ title: "Carpeta creada", variant: "success" });
           }}
         />
 
@@ -174,12 +221,6 @@ export default function Home() {
             <h1 className="text-3xl font-semibold">
               {folders.find((f) => f.id === activeFolderId)?.name || "Todas"}
             </h1>
-            <button
-              onClick={signOut}
-              className="rounded-xl border border-neutral-300 px-3 py-1.5 text-sm transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900"
-            >
-              Cerrar sesión
-            </button>
           </header>
 
           <TaskComposer value={newTitle} onChange={setNewTitle} onSubmit={addTask} />
@@ -204,6 +245,22 @@ export default function Home() {
               ))
             )}
           </section>
+
+          <div className="mt-6 flex items-center justify-between text-sm opacity-70">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="rounded-lg border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+            >
+              Anterior
+            </button>
+            <span>Página {page}</span>
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              className="rounded-lg border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+            >
+              Siguiente
+            </button>
+          </div>
         </main>
       </div>
     </div>
