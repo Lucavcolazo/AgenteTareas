@@ -5,7 +5,7 @@ import type { Database } from "@/types/database";
 
 export async function supabaseServer() {
   const cookieStore = await cookies();
-  return createRouteHandlerClient<Database>({ cookies: () => cookieStore });
+  return createRouteHandlerClient<Database>({ cookies: async () => cookieStore });
 }
 
 

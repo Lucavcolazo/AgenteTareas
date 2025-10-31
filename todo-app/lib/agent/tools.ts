@@ -100,11 +100,12 @@ export async function createTaskTool(args: CreateTaskArgs) {
       const { data: f } = await supabase
         .from("folders")
         .select("id,name")
-        .eq("user_id", userId)
-        .ilike("name", name);
+        .eq("user_id" as never, userId)
+        .ilike("name" as never, name);
       type FolderRow = { id: string; name: string };
-      const exact = (f ?? []).find((x: FolderRow) => x.name.trim().toLowerCase() === name);
-      const pick = exact ?? (f ?? [])[0];
+      const folders = (f ?? []) as unknown as FolderRow[];
+      const exact = folders.find((x) => x.name.trim().toLowerCase() === name);
+      const pick = exact ?? folders[0];
       if (pick) resolvedFolderId = pick.id as string;
       else throw new Error("No se encontró la carpeta indicada por nombre");
     }
@@ -119,7 +120,7 @@ export async function createTaskTool(args: CreateTaskArgs) {
       category: args.category ?? null,
       folder_id: resolvedFolderId,
       details: args.details ?? null,
-    })
+    } as never)
     .select()
     .single();
   if (error) throw error;
@@ -152,7 +153,7 @@ export async function createTaskTool(args: CreateTaskArgs) {
     }
   }
 
-  const result = data as Record<string, unknown>;
+  const result = data as unknown as Record<string, unknown>;
   return { ...result, calendarResult };
 }
 
@@ -195,11 +196,12 @@ export async function updateTaskTool(args: UpdateTaskArgs) {
       const { data: f } = await supabase
         .from("folders")
         .select("id,name")
-        .eq("user_id", userId)
-        .ilike("name", name);
+        .eq("user_id" as never, userId)
+        .ilike("name" as never, name);
       type FolderRow = { id: string; name: string };
-      const exact = (f ?? []).find((x: FolderRow) => x.name.trim().toLowerCase() === name);
-      const pick = exact ?? (f ?? [])[0];
+      const folders = (f ?? []) as unknown as FolderRow[];
+      const exact = folders.find((x) => x.name.trim().toLowerCase() === name);
+      const pick = exact ?? folders[0];
       if (pick) update.folder_id = pick.id as string;
       else throw new Error("No se encontró la carpeta indicada por nombre");
     }
@@ -207,9 +209,9 @@ export async function updateTaskTool(args: UpdateTaskArgs) {
   if (Object.keys(update).length === 0) throw new Error("Sin cambios");
   const { data, error } = await supabase
     .from("tasks")
-    .update(update)
-    .eq("id", args.taskId)
-    .eq("user_id", userId)
+    .update(update as never)
+    .eq("id" as never, args.taskId)
+    .eq("user_id" as never, userId)
     .select()
     .single();
   if (error) throw error;
@@ -219,10 +221,10 @@ export async function updateTaskTool(args: UpdateTaskArgs) {
 export async function deleteTaskTool(args: DeleteTaskArgs) {
   const userId = await getUserId();
   const supabase = await supabaseServer();
-  const { data: found } = await supabase.from("tasks").select("id,title").eq("id", args.taskId).eq("user_id", userId).single();
+  const { data: found } = await supabase.from("tasks").select("id,title").eq("id" as never, args.taskId).eq("user_id" as never, userId).single();
   if (!found) throw new Error("No encontrada");
   const foundTask = found as { id: string; title: string };
-  const { error } = await supabase.from("tasks").update({ deleted_at: new Date().toISOString() }).eq("id", args.taskId).eq("user_id", userId);
+    const { error } = await supabase.from("tasks").update({ deleted_at: new Date().toISOString() } as never).eq("id" as never, args.taskId).eq("user_id" as never, userId);
   if (error) throw error;
   return { deletedId: args.taskId, title: foundTask.title };
 }
@@ -235,9 +237,9 @@ export async function deleteTasksBulkTool(args: DeleteTasksBulkArgs) {
   const supabase = await supabaseServer();
   const { error } = await supabase
     .from("tasks")
-    .update({ deleted_at: new Date().toISOString() })
-    .in("id", ids)
-    .eq("user_id", userId);
+    .update({ deleted_at: new Date().toISOString() } as never)
+    .in("id" as never, ids as never)
+    .eq("user_id" as never, userId);
   if (error) throw error;
   return { deleted: ids.length };
 }
@@ -245,10 +247,10 @@ export async function deleteTasksBulkTool(args: DeleteTasksBulkArgs) {
 export async function searchTasksTool(args: SearchTasksArgs) {
   const userId = await getUserId();
   const supabase = await supabaseServer();
-  let q = supabase.from("tasks").select("*").eq("user_id", userId).is("deleted_at", null);
-  if (typeof args.completed === "boolean") q = q.eq("completada", args.completed);
-  if (args.priority) q = q.eq("priority", args.priority);
-  if (args.category) q = q.eq("category", args.category);
+  let q = supabase.from("tasks").select("*").eq("user_id" as never, userId).is("deleted_at", null);
+  if (typeof args.completed === "boolean") q = q.eq("completada" as never, args.completed);
+  if (args.priority) q = q.eq("priority" as never, args.priority);
+  if (args.category) q = q.eq("category" as never, args.category);
   if (args.categories && args.categories.length > 0) {
     const orParts = args.categories.map((c) => `category.eq.${c}`);
     q = q.or(orParts.join(","));
@@ -257,8 +259,8 @@ export async function searchTasksTool(args: SearchTasksArgs) {
     const qtext = args.query.trim();
     q = q.or(`title.ilike.%${qtext}%,details.ilike.%${qtext}%`);
   }
-  if (args.dueDateFrom) q = q.gte("due_date", args.dueDateFrom);
-  if (args.dueDateTo) q = q.lte("due_date", args.dueDateTo);
+  if (args.dueDateFrom) q = q.gte("due_date" as never, args.dueDateFrom);
+  if (args.dueDateTo) q = q.lte("due_date" as never, args.dueDateTo);
   const sortMap: Record<string, string> = { createdAt: "created_at", dueDate: "due_date", priority: "priority", title: "title" };
   // Por defecto, ordenar por created_at descendente (más recientes primero)
   if (args.sortBy) {
@@ -452,7 +454,7 @@ export async function getTaskStatsTool(args: GetTaskStatsArgs) {
   
   // Filtrar por período si se especifica
   const period = args.period ?? "all-time";
-  const { data } = await supabase.from("tasks").select("*").eq("user_id", userId).is("deleted_at", null);
+  const { data } = await supabase.from("tasks").select("*").eq("user_id" as never, userId).is("deleted_at", null);
   let allTasks = ((data ?? []) as unknown) as TaskWithDates[];
   
   // Aplicar filtro de período si no es "all-time"

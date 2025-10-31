@@ -11,6 +11,9 @@ if (!supabaseUrl || !supabaseServiceRoleKey) {
 
 // Cliente con permisos de administrador (service_role)
 export function supabaseAdmin() {
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY no está configurada en las variables de entorno");
+  }
   return createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
     auth: {
       autoRefreshToken: false,
