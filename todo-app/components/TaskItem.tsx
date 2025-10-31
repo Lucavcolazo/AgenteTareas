@@ -2,7 +2,8 @@
 
 // Item de tarea reutilizable con estilos minimalistas
 
-import { Check, Trash2 } from "lucide-react";
+import React from "react";
+import { Check, Trash2, Pencil } from "lucide-react";
 import type { Tables } from "@/types/database";
 
 type Task = Tables["tasks"]["Row"];
@@ -11,36 +12,57 @@ export function TaskItem({
   task,
   onToggle,
   onDelete,
+  onOpenEdit,
 }: {
   task: Task;
   onToggle: (taskId: string, nextCompleted: boolean) => void;
   onDelete: (taskId: string) => void;
+  onOpenEdit?: (task: Task) => void;
 }) {
-  const next = !Boolean(task.completed);
+  const next = !Boolean(task.completada);
+
   return (
-    <div className="group flex items-center gap-3 rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3 transition-colors">
+    <div className="group flex items-center gap-3 rounded-xl border border-neutral-200 dark:border-neutral-800 px-4 py-3 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-900 cursor-pointer" onClick={() => onOpenEdit?.(task)}>
       <button
         aria-label="Marcar completada"
-        onClick={() => onToggle(task.id, next)}
-        className={`grid h-5 w-5 place-items-center rounded-md border transition-colors ${
-          task.completed
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle(task.id, next);
+        }}
+        className={`grid h-5 w-5 place-items-center rounded-md border transition-colors shrink-0 ${
+          task.completada
             ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white"
             : "border-neutral-400 dark:border-neutral-600"
         }`}
       >
-        {task.completed ? <Check className="h-3.5 w-3.5" /> : null}
+        {task.completada ? <Check className="h-3.5 w-3.5" /> : null}
       </button>
-      <div
-        className={`flex-1 text-sm transition-opacity ${
-          task.completed ? "line-through opacity-50" : ""
-        }`}
-      >
-        {task.title}
+      <div className="flex flex-1 items-center gap-2">
+        <div
+          className={`flex-1 text-sm transition-opacity ${
+            task.completada ? "line-through opacity-50" : ""
+          }`}
+        >
+          {task.title}
+        </div>
+        <button
+          aria-label="Editar"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenEdit?.(task);
+          }}
+          className="opacity-0 transition-opacity group-hover:opacity-60 hover:opacity-100 shrink-0"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
       </div>
       <button
         aria-label="Eliminar"
-        onClick={() => onDelete(task.id)}
-        className="opacity-60 transition-opacity hover:opacity-100"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(task.id);
+        }}
+        className="opacity-60 transition-opacity hover:opacity-100 shrink-0"
       >
         <Trash2 className="h-4 w-4" />
       </button>

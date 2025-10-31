@@ -12,6 +12,7 @@ import { Navbar } from "@/components/Navbar";
 import { BotFab } from "@/components/BotFab";
 import { AgentChatModal } from "@/components/AgentChatModal";
 import { FolderCreateModal } from "@/components/FolderCreateModal";
+import { TaskEditModal } from "@/components/TaskEditModal";
 import { useToast } from "@/components/Toast";
 import type { Tables } from "@/types/database";
 
@@ -22,7 +23,7 @@ export default function Home() {
   const supabase = supabaseClient();
   const router = useRouter();
   const { show } = useToast();
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -33,11 +34,20 @@ export default function Home() {
   const [pageSize, setPageSize] = useState(10);
   const [folderModalOpen, setFolderModalOpen] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
+  const [taskEditOpen, setTaskEditOpen] = useState(false);
+  const [taskEditing, setTaskEditing] = useState<Task | null>(null);
 
   // Cargar sesión y tareas del usuario
   useEffect(() => {
     let isMounted = true;
     (async () => {
+      // Verificar si hay mensaje de conexión exitosa de Google Calendar
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("google_calendar_connected") === "true") {
+        show({ title: "Google Calendar conectado", description: "Ya puedes crear tareas con fecha automáticamente", variant: "success" });
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+
       const { data } = await supabase.auth.getUser();
       const user = data.user;
       if (!user) {
@@ -45,10 +55,11 @@ export default function Home() {
         return;
       }
       if (!isMounted) return;
-      setUserEmail(user.email ?? null);
+      const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+      const fullName = typeof meta.full_name === "string" ? meta.full_name : undefined;
+      const name = typeof meta.name === "string" ? meta.name : undefined;
+      setDisplayName(fullName || name || (user.email ? user.email.split("@")[0] : null));
       setUserId(user.id);
-      const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
       const { data: rows } = await supabase
         .from("tasks")
         .select("*", { count: "exact" })
@@ -69,7 +80,7 @@ export default function Home() {
     return () => {
       isMounted = false;
     };
-  }, [router, supabase]);
+  }, [router, supabase, page, pageSize, show]);
 
   // Suscribirse en tiempo real a cambios de tareas del usuario
   useEffect(() => {
@@ -80,10 +91,10 @@ export default function Home() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "tasks", filter: `user_id=eq.${userId}` },
         (payload) => {
-          const row = payload.new as any;
+          const row = payload.new as Task;
           setTasks((prev) => {
             if (prev.some((t) => t.id === row.id)) return prev;
-            return [{ ...(row as any) }, ...prev];
+            return [row, ...prev];
           });
         }
       )
@@ -91,17 +102,17 @@ export default function Home() {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "tasks", filter: `user_id=eq.${userId}` },
         (payload) => {
-          const row = payload.new as any;
+          const row = payload.new as Task;
           setTasks((prev) => {
             if (row.deleted_at) return prev.filter((t) => t.id !== row.id);
-            return prev.map((t) => (t.id === row.id ? { ...t, ...(row as any) } : t));
+            return prev.map((t) => (t.id === row.id ? { ...t, ...row } : t));
           });
         }
       )
       // Eliminaciones duras no deberían ocurrir con soft delete, 
       // mantenemos el listener por si acaso
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "tasks", filter: `user_id=eq.${userId}` }, (payload) => {
-        const oldRow = payload.old as any;
+        const oldRow = payload.old as { id: string };
         setTasks((prev) => prev.filter((t) => t.id !== oldRow.id));
       })
       .subscribe();
@@ -111,17 +122,13 @@ export default function Home() {
     };
   }, [supabase, userId]);
 
-  const counts = useMemo(() => {
-    const done = tasks.filter((t) => t.completed).length;
-    return { done, total: tasks.length, pending: tasks.length - done };
-  }, [tasks]);
 
   const folderCounts = useMemo(() => {
     const map: Record<string, number> = {};
     let none = 0;
     let all = 0;
     for (const t of tasks) {
-      if (!t.completed) {
+      if (!t.completada) {
         all++;
         if (t.folder_id) {
           const fid = t.folder_id as unknown as string;
@@ -142,25 +149,32 @@ export default function Home() {
     const { data: auth } = await supabase.auth.getUser();
     const userId = auth.user?.id;
     if (!userId) return router.replace("/login");
+    // Filtrar valores especiales de activeFolderId (__none__, __all__) que no son UUIDs reales
+    const realFolderId = activeFolderId && activeFolderId !== "__none__" && activeFolderId !== "__all__" ? activeFolderId : null;
     const optimistic: Task = {
       id: crypto.randomUUID(),
       user_id: userId,
       title,
-      completed: false,
+      completada: false,
       created_at: new Date().toISOString(),
-      folder_id: activeFolderId ?? null,
+      folder_id: realFolderId,
     } as Task;
     setTasks((prev) => [optimistic, ...prev]);
     setNewTitle("");
     const { data, error } = await supabase
       .from("tasks")
-      .insert({ title, user_id: userId, folder_id: activeFolderId ?? undefined })
+      .insert({ title, user_id: userId, folder_id: realFolderId ?? null })
       .select()
       .single();
     if (error) {
       // Revertir si falla
       setTasks((prev) => prev.filter((t) => t.id !== optimistic.id));
-      show({ title: "Error al crear tarea", variant: "error" });
+      console.error("Error al crear tarea:", error);
+      show({ 
+        title: "Error al crear tarea", 
+        description: error.message ?? "Verifica las políticas RLS en Supabase",
+        variant: "error" 
+      });
       return;
     }
     // Conservar props del optimista (p.ej. folder_id) si la respuesta no las trae
@@ -171,14 +185,19 @@ export default function Home() {
   }
 
   async function toggleTask(id: string, nextCompleted: boolean) {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, completed: nextCompleted } : t)));
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, completada: nextCompleted } : t)));
     const { error } = await supabase
       .from("tasks")
-      .update({ completed: nextCompleted })
+      .update({ completada: nextCompleted })
       .eq("id", id);
     if (error) {
-      setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, completed: !nextCompleted } : t)));
-      show({ title: "No se pudo actualizar la tarea", variant: "error" });
+      setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, completada: !nextCompleted } : t)));
+      console.error("Error al actualizar tarea:", error);
+      show({ 
+        title: "No se pudo actualizar la tarea", 
+        description: error.message ?? "Verifica que el campo 'completada' exista en la base de datos",
+        variant: "error" 
+      });
     }
     else show({ title: nextCompleted ? "Tarea completada" : "Tarea marcada como pendiente", variant: "success" });
   }
@@ -193,6 +212,39 @@ export default function Home() {
     } else {
       show({ title: "Tarea eliminada", variant: "success" });
     }
+  }
+
+  async function editFolder(id: string, newName: string) {
+    const prev = folders;
+    setFolders((cur) => cur.map((f) => (f.id === id ? { ...f, name: newName } : f)));
+    const { error } = await supabase.from("folders").update({ name: newName }).eq("id", id);
+    if (error) {
+      setFolders(prev);
+      show({ title: "No se pudo actualizar la carpeta", variant: "error" });
+    } else {
+      show({ title: "Carpeta actualizada", variant: "success" });
+    }
+  }
+
+  async function confirmTaskEdit(payload: { id: string; title: string; details: string | null; dueDateIso: string | null; priority: "low" | "medium" | "high" | null }) {
+    const prev = tasks;
+    setTasks((cur) => cur.map((t) => (
+      t.id === payload.id
+        ? { ...t, title: payload.title, details: payload.details ?? null, due_date: payload.dueDateIso ?? null, priority: payload.priority ?? t.priority }
+        : t
+    )));
+    const { error } = await supabase
+      .from("tasks")
+      .update({ title: payload.title, details: payload.details, due_date: payload.dueDateIso, priority: payload.priority })
+      .eq("id", payload.id);
+    if (error) {
+      setTasks(prev);
+      show({ title: "No se pudo guardar los cambios", variant: "error" });
+    } else {
+      show({ title: "Tarea actualizada", variant: "success" });
+    }
+    setTaskEditOpen(false);
+    setTaskEditing(null);
   }
 
   async function signOut() {
@@ -211,7 +263,7 @@ export default function Home() {
   const visible = tasks.filter((t) => (
     activeFolderId === "__none__" ? !t.folder_id : activeFolderId ? t.folder_id === activeFolderId : true
   ));
-  const [open, done] = [visible.filter((t) => !t.completed), visible.filter((t) => t.completed)];
+  const [open, done] = [visible.filter((t) => !t.completada), visible.filter((t) => t.completada)];
 
   return (
     <div className="min-h-dvh bg-white text-black dark:bg-black dark:text-white">
@@ -219,7 +271,7 @@ export default function Home() {
       <div className="sticky top-0 z-20 w-full border-b border-neutral-200 bg-white/80 backdrop-blur dark:border-neutral-800 dark:bg-black/80">
         <div className="mx-auto w-full max-w-5xl px-6 py-4 md:px-8">
           <Navbar
-            email={userEmail}
+            displayName={displayName}
             onSignOut={signOut}
             pageSize={pageSize}
             onChangePageSize={(n) => {
@@ -242,6 +294,7 @@ export default function Home() {
             if (!userId) return;
             setFolderModalOpen(true);
           }}
+          onEdit={editFolder}
         />
 
         <FolderCreateModal
@@ -250,7 +303,8 @@ export default function Home() {
           onConfirm={async (name) => {
             setFolderModalOpen(false);
             const { data: auth } = await supabase.auth.getUser();
-            const userId = auth.user?.id!;
+            const userId = auth.user?.id;
+            if (!userId) return;
             const optimistic: Folder = {
               id: crypto.randomUUID(),
               user_id: userId,
@@ -288,42 +342,88 @@ export default function Home() {
               <p className="opacity-60">No hay tareas pendientes.</p>
             ) : (
               open.map((t) => (
-                <TaskItem key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} />
+                <TaskItem
+                  key={t.id}
+                  task={t}
+                  onToggle={toggleTask}
+                  onDelete={deleteTask}
+                  onOpenEdit={(task) => {
+                    setTaskEditing(task);
+                    setTaskEditOpen(true);
+                  }}
+                />
               ))
             )}
           </section>
 
-          <h2 className="mt-8 mb-2 text-sm font-semibold opacity-70">Completed</h2>
-          <section className="space-y-2">
-            {done.length === 0 ? (
-              <p className="opacity-40">Nada completado aún.</p>
-            ) : (
-              done.map((t) => (
-                <TaskItem key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} />
-              ))
-            )}
-          </section>
+          {done.length > 0 ? (
+            <>
+              <h2 className="mt-8 mb-2 text-sm font-semibold opacity-70">Completadas</h2>
+              <section className="space-y-2">
+                {done.map((t) => (
+                  <TaskItem
+                    key={t.id}
+                    task={t}
+                    onToggle={toggleTask}
+                    onDelete={deleteTask}
+                    onOpenEdit={(task) => {
+                      setTaskEditing(task);
+                      setTaskEditOpen(true);
+                    }}
+                  />
+                ))}
+              </section>
+            </>
+          ) : null}
 
-          <div className="mt-6 flex items-center justify-between text-sm opacity-70">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded-lg border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
-            >
-              Anterior
-            </button>
-            <span>Página {page}</span>
-            <button
-              onClick={() => setPage((p) => p + 1)}
-              className="rounded-lg border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
-            >
-              Siguiente
-            </button>
-          </div>
+          {visible.length > pageSize ? (
+            <div className="mt-6 flex items-center justify-between text-sm opacity-70">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="rounded-lg border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+              >
+                Anterior
+              </button>
+              <span>Página {page}</span>
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                className="rounded-lg border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+              >
+                Siguiente
+              </button>
+            </div>
+          ) : null}
         </main>
         
       </div>
       <BotFab onClick={() => setAgentOpen(true)} />
-      <AgentChatModal open={agentOpen} onClose={() => setAgentOpen(false)} />
+      <AgentChatModal
+        open={agentOpen}
+        onClose={() => setAgentOpen(false)}
+        displayName={displayName}
+        onTaskChange={async () => {
+          // Refrescar tareas después de que el bot hace cambios
+          const { data: auth } = await supabase.auth.getUser();
+          const userId = auth.user?.id;
+          if (!userId) return;
+          const { data: rows } = await supabase
+            .from("tasks")
+            .select("*")
+            .eq("user_id", userId)
+            .is("deleted_at", null)
+            .order("created_at", { ascending: false });
+          if (rows) setTasks(rows);
+        }}
+      />
+      <TaskEditModal
+        open={taskEditOpen}
+        onClose={() => {
+          setTaskEditOpen(false);
+          setTaskEditing(null);
+        }}
+        task={taskEditing}
+        onConfirm={confirmTaskEdit}
+      />
     </div>
   );
 }

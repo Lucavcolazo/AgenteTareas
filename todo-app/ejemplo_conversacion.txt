@@ -1,0 +1,77 @@
+Usuario: "Hola, necesito organizar mis tareas del día"
+
+AI: "¡Claro! Puedo ayudarte a gestionar tus tareas. ¿Qué necesitas hacer hoy?"
+
+Usuario: "Agregar tres tareas: comprar leche, terminar informe de ventas,
+         y llamar al dentista. El informe es urgente."
+
+AI: [Ejecuta createTask 3 veces con diferentes parámetros]
+    "Perfecto, agregué estas 3 tareas:
+
+    ✅ Comprar leche (Prioridad: media)
+    ⚡ Terminar informe de ventas (Prioridad: alta)
+    📞 Llamar al dentista (Prioridad: media)
+
+    ¿Quieres asignarles fechas límite?"
+
+Usuario: "El informe es para hoy, el dentista para mañana"
+
+AI: [Ejecuta updateTask 2 veces]
+    "Actualizado:
+    - Informe de ventas: vence hoy
+    - Llamar al dentista: vence mañana
+
+    Tienes 3 tareas pendientes, 1 urgente. ¿Empezamos?"
+
+Usuario: "Ya compré la leche, márcala como completada"
+
+AI: [Ejecuta searchTasks con query="leche" + updateTask con completed=true]
+    "¡Excelente! Marqué 'Comprar leche' como completada ✓
+
+    Te quedan 2 tareas pendientes:
+    - ⚡ Terminar informe de ventas (vence hoy)
+    - 📞 Llamar al dentista (vence mañana)"
+
+Usuario: "Muéstrame todas mis tareas pendientes de alta prioridad"
+
+AI: [Ejecuta searchTasks con completed=false, priority="high"]
+    "Tienes 1 tarea de alta prioridad pendiente:
+
+    ⚡ Terminar informe de ventas
+       📅 Vence: Hoy
+       🏷️ Categoría: Trabajo
+       ⏰ Creada: Hace 15 minutos"
+
+Usuario: "¿Qué tan productivo he sido esta semana?"
+
+AI: [Ejecuta getTaskStats con period="week"]
+    "📊 Tu productividad esta semana:
+
+    ✅ Completadas: 8 tareas
+    ⏳ Pendientes: 3 tareas
+    📈 Tasa de completitud: 73%
+    🔥 Racha actual: 4 días consecutivos
+
+    Por categoría:
+    - 💼 Trabajo: 5 completadas, 2 pendientes
+    - 🏠 Personal: 2 completadas, 1 pendiente
+    - 🛒 Compras: 1 completada, 0 pendientes
+
+    ¡Vas muy bien! Estás 20% más productivo que la semana pasada 🎉"
+
+Usuario: "Elimina todas las tareas completadas"
+
+AI: [Primero busca con searchTasks completed=true, luego confirma]
+    "Encontré 8 tareas completadas. ¿Estás seguro que quieres eliminarlas
+    todas? Esto no se puede deshacer."
+
+Usuario: "Sí, elimínalas"
+
+AI: [Ejecuta deleteTask múltiples veces]
+    "Eliminadas 8 tareas completadas:
+    - Comprar leche
+    - Enviar email a cliente
+    - Pagar factura de luz
+    - [... 5 más]
+
+    Tu lista está más limpia. Te quedan 3 tareas activas."

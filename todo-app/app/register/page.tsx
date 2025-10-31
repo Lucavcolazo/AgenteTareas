@@ -3,9 +3,29 @@
 export const dynamic = "force-dynamic";
 
 // Página que muestra la misma tarjeta en modo registro
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { supabaseClient } from "@/lib/supabaseClient";
 import { AuthCard } from "@/components/AuthCard";
 
 export default function RegisterPage() {
+  const router = useRouter();
+  const supabase = supabaseClient();
+
+  // Si ya está autenticado, redirigir a home
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && isMounted) {
+        router.replace("/");
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, [router, supabase]);
+
   return (
     <div className="min-h-dvh grid place-items-center bg-white text-black dark:bg-black dark:text-white">
       <div className="flex w-full max-w-3xl flex-col items-center">

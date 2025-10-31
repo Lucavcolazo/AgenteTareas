@@ -3,6 +3,7 @@
 // Tarjeta con flip entre login y registro + botón Google
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabaseClient } from "@/lib/supabaseClient";
 
 export function AuthCard({
@@ -12,6 +13,7 @@ export function AuthCard({
   defaultMode?: "login" | "register";
   singleMode?: boolean;
 }) {
+  const router = useRouter();
   const [mode, setMode] = useState<"login" | "register">(defaultMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,12 +32,31 @@ export function AuthCard({
     const { error } = await authFn;
     setLoading(false);
     if (error) return setError(error.message);
-    if (mode === "register") setError("Registro realizado. Si es necesario, confirma tu correo.");
+    
+    // Si es registro, mostrar mensaje
+    if (mode === "register") {
+      setError("Registro realizado. Si es necesario, confirma tu correo.");
+      // Si el registro fue exitoso y no requiere confirmación, redirigir
+      setTimeout(() => {
+        router.push("/");
+        router.refresh();
+      }, 1000);
+      return;
+    }
+    
+    // Si es login exitoso, redirigir a home (/)
+    router.push("/");
+    router.refresh();
   }
 
   async function signInWithGoogle() {
     const supabase = supabaseClient();
-    await supabase.auth.signInWithOAuth({ provider: "google" });
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/`,
+      },
+    });
   }
 
   // Renderizado simple (inputs flotando sin card)

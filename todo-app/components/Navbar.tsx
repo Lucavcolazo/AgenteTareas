@@ -3,23 +3,23 @@
 // Navbar con nombre de usuario, inicial en círculo y menú de ajustes
 
 import { useState, useMemo } from "react";
-import { Moon, Sun, LogOut, Settings } from "lucide-react";
-import { useTheme } from "next-themes";
+import { useRouter } from "next/navigation";
+import { LogOut } from "lucide-react";
 
 export function Navbar({
-  email,
+  displayName,
   onSignOut,
   pageSize,
   onChangePageSize,
 }: {
-  email: string | null;
+  displayName: string | null;
   onSignOut: () => void;
   pageSize: number;
   onChangePageSize: (n: number) => void;
 }) {
-  const { theme, setTheme } = useTheme();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
-  const name = useMemo(() => email ?? "Usuario", [email]);
+  const name = useMemo(() => displayName ?? "Usuario", [displayName]);
   const initial = (name || "U").charAt(0).toUpperCase();
 
   return (
@@ -27,7 +27,7 @@ export function Navbar({
       <h1 className="text-xl font-semibold">To‑Do</h1>
       <div className="relative">
         <button
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => router.push("/profile")}
           className="flex items-center gap-3 rounded-full border border-neutral-300 px-2 py-1.5 transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900"
         >
           <span className="text-sm opacity-80 hidden sm:inline">{name}</span>
@@ -38,14 +38,6 @@ export function Navbar({
         {open ? (
           <div className="absolute right-0 z-10 mt-2 w-56 rounded-xl border border-neutral-200 bg-white p-2 text-sm shadow-lg dark:border-neutral-800 dark:bg-black">
             <div className="px-2 py-1.5 font-medium opacity-70">Ajustes</div>
-            <button
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-900"
-            >
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              <span>Tema: {theme === "dark" ? "Oscuro" : "Claro"}</span>
-            </button>
-
             <div className="mt-1 rounded-lg px-2 py-2">
               <label className="mb-1 block opacity-70">Tareas por página</label>
               <select
@@ -60,6 +52,16 @@ export function Navbar({
                 ))}
               </select>
             </div>
+
+            <button
+              onClick={() => {
+                setOpen(false);
+                router.push("/profile");
+              }}
+              className="mt-2 flex w-full items-center gap-2 rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-900"
+            >
+              <span>Perfil</span>
+            </button>
 
             <button
               onClick={onSignOut}

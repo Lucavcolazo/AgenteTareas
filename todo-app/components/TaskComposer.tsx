@@ -8,7 +8,7 @@ export function TaskComposer({
   value,
   onChange,
   onSubmit,
-  placeholder = "Add a new task…",
+  placeholder = "Agrega una nueva tarea…",
 }: {
   value: string;
   onChange: (v: string) => void;

@@ -6,7 +6,7 @@ export type Tables = {
       id: string;
       user_id: string | null;
       title: string;
-      completed: boolean | null;
+      completada: boolean | null;
       priority?: string | null;
       category?: string | null;
       due_date?: string | null;
@@ -19,7 +19,7 @@ export type Tables = {
       id?: string;
       user_id?: string | null;
       title: string;
-      completed?: boolean | null;
+      completada?: boolean | null;
       priority?: string | null;
       category?: string | null;
       due_date?: string | null;
@@ -30,7 +30,7 @@ export type Tables = {
     };
     Update: Partial<{
       title: string;
-      completed: boolean | null;
+      completada: boolean | null;
       priority: string | null;
       category: string | null;
       due_date: string | null;
@@ -57,6 +57,30 @@ export type Tables = {
     Update: Partial<{
       name: string;
       updated_at: string | null;
+    }>;
+  };
+  chat_messages: {
+    Row: {
+      id: string;
+      user_id: string;
+      role: "user" | "assistant";
+      content: string;
+      created_at: string;
+      session_id: string;
+      deleted_at: string | null;
+    };
+    Insert: {
+      id?: string;
+      user_id: string;
+      role: "user" | "assistant";
+      content: string;
+      created_at?: string;
+      session_id: string;
+      deleted_at?: string | null;
+    };
+    Update: Partial<{
+      content: string;
+      deleted_at: string | null;
     }>;
   };
 };
