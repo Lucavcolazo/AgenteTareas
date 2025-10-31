@@ -8,11 +8,15 @@ export function TaskComposer({
   value,
   onChange,
   onSubmit,
+  due,
+  onDueChange,
   placeholder = "Add a new task…",
 }: {
   value: string;
   onChange: (v: string) => void;
   onSubmit: () => void;
+  due?: string | null;
+  onDueChange?: (v: string) => void;
   placeholder?: string;
 }) {
   return (
@@ -25,6 +29,12 @@ export function TaskComposer({
         }}
         placeholder={placeholder}
         className="flex-1 rounded-xl border border-neutral-300 bg-transparent px-4 py-3 outline-none transition-shadow focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:focus:ring-neutral-700"
+      />
+      <input
+        type="datetime-local"
+        value={due ?? ""}
+        onChange={(e) => onDueChange?.(e.target.value)}
+        className="rounded-xl border border-neutral-300 bg-transparent px-3 py-3 text-sm outline-none dark:border-neutral-700"
       />
       <button
         onClick={onSubmit}

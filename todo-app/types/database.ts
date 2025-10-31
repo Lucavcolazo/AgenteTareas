@@ -8,7 +8,8 @@ export type Tables = {
       title: string;
       completed: boolean | null;
       priority?: string | null;
-      category?: string | null;
+      category?: string | null; // legacy: se usaba para notas
+      details?: string | null; // nuevo: notas/detalles de la tarea
       due_date?: string | null;
       created_at: string | null;
       updated_at?: string | null;
@@ -21,6 +22,7 @@ export type Tables = {
       completed?: boolean | null;
       priority?: string | null;
       category?: string | null;
+      details?: string | null;
       due_date?: string | null;
       created_at?: string | null;
       updated_at?: string | null;
@@ -31,6 +33,7 @@ export type Tables = {
       completed: boolean | null;
       priority: string | null;
       category: string | null;
+      details: string | null;
       due_date: string | null;
       updated_at: string | null;
       folder_id: string | null;

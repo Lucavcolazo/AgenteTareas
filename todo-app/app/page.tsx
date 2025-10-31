@@ -11,6 +11,7 @@ import { TaskComposer } from "@/components/TaskComposer";
 import { Navbar } from "@/components/Navbar";
 import { FolderCreateModal } from "@/components/FolderCreateModal";
 import { useToast } from "@/components/Toast";
+import { TaskDetailsModal } from "@/components/TaskDetailsModal";
 import type { Tables } from "@/types/database";
 
 type Task = Tables["tasks"]["Row"];
@@ -25,10 +26,15 @@ export default function Home() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
+  const [newDue, setNewDue] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
   const [folderModalOpen, setFolderModalOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsTask, setDetailsTask] = useState<Task | null>(null);
 
   // Cargar sesión y tareas del usuario
   useEffect(() => {
@@ -44,12 +50,15 @@ export default function Home() {
       setUserEmail(user.email ?? null);
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
-      const { data: rows } = await supabase
+      let query = supabase
         .from("tasks")
         .select("*", { count: "exact" })
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      setTasks(rows ?? []);
+        .eq("user_id", user.id);
+      if (activeFolderId) query = query.eq("folder_id", activeFolderId);
+      query = query.order("created_at", { ascending: false }).range(from, to);
+      const { data: rows, count } = await query;
+      setTasks((rows ?? []) as Task[]);
+      setTotalCount(count ?? 0);
       const { data: fRows } = await supabase
         .from("folders")
         .select("*")
@@ -57,13 +66,15 @@ export default function Home() {
         .order("created_at", { ascending: true });
       const safeFolders = (fRows ?? []) as Folder[];
       setFolders(safeFolders);
-      setActiveFolderId(safeFolders[0]?.id ?? null);
+      if (activeFolderId == null) {
+        setActiveFolderId(safeFolders[0]?.id ?? null);
+      }
       setLoading(false);
     })();
     return () => {
       isMounted = false;
     };
-  }, [router, supabase]);
+  }, [router, supabase, page, pageSize, activeFolderId]);
 
   const counts = useMemo(() => {
     const done = tasks.filter((t) => t.completed).length;
@@ -93,12 +104,14 @@ export default function Home() {
       completed: false,
       created_at: new Date().toISOString(),
       folder_id: activeFolderId ?? null,
+      due_date: newDue ?? null,
     } as Task;
     setTasks((prev) => [optimistic, ...prev]);
     setNewTitle("");
+    setNewDue(null);
     const { data, error } = await supabase
       .from("tasks")
-      .insert({ title, user_id: userId, folder_id: activeFolderId ?? undefined })
+      .insert({ title, user_id: userId, folder_id: activeFolderId ?? undefined, due_date: newDue ?? undefined })
       .select()
       .single();
     if (error) {
@@ -139,9 +152,68 @@ export default function Home() {
     }
   }
 
+  async function deleteSelected() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const prev = tasks;
+    setTasks((cur) => cur.filter((t) => !selectedIds.has(t.id)));
+    setSelectedIds(new Set());
+    const { error } = await supabase.from("tasks").delete().in("id", ids);
+    if (error) {
+      setTasks(prev);
+      show({ title: "No se pudo eliminar la selección", variant: "error" });
+    } else {
+      show({ title: "Tareas eliminadas", variant: "success" });
+    }
+  }
+
+  async function saveNotes(taskId: string, notes: string) {
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, details: notes } : t)));
+    const { error } = await supabase.from("tasks").update({ details: notes, category: notes }).eq("id", taskId);
+    if (error) {
+      show({ title: "No se pudieron guardar los detalles", variant: "error" });
+    } else {
+      show({ title: "Detalles guardados", variant: "success" });
+    }
+  }
+
+  async function addTaskToCalendar(task: Task) {
+    if (!task.due_date) {
+      show({ title: "Agrega una fecha/hora primero", variant: "error" });
+      return;
+    }
+    const res = await fetch("/api/calendar/url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: task.title,
+        startISO: task.due_date,
+        details: (task.details as string) ?? (task.category as string) ?? "",
+      }),
+    });
+    const json = await res.json();
+    if (json.url) window.open(json.url, "_blank");
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
     router.replace("/login");
+  }
+
+  const visible = tasks.filter((t) => (activeFolderId ? t.folder_id === activeFolderId : true));
+  const [open, done] = [visible.filter((t) => !t.completed), visible.filter((t) => t.completed)];
+  const allVisibleIds = useMemo(() => visible.map((t) => t.id), [visible]);
+  const allSelected = allVisibleIds.every((id) => selectedIds.has(id)) && allVisibleIds.length > 0;
+  function toggleSelectAll(next: boolean) {
+    setSelectedIds((prev) => {
+      const copy = new Set(prev);
+      if (next) {
+        for (const id of allVisibleIds) copy.add(id);
+      } else {
+        for (const id of allVisibleIds) copy.delete(id);
+      }
+      return copy;
+    });
   }
 
   if (loading) {
@@ -151,9 +223,6 @@ export default function Home() {
       </div>
     );
   }
-
-  const visible = tasks.filter((t) => (activeFolderId ? t.folder_id === activeFolderId : true));
-  const [open, done] = [visible.filter((t) => !t.completed), visible.filter((t) => t.completed)];
 
   return (
     <div className="min-h-dvh bg-white text-black dark:bg-black dark:text-white">
@@ -177,7 +246,10 @@ export default function Home() {
           folders={folders}
           counts={folderCounts}
           activeId={activeFolderId}
-          onSelect={setActiveFolderId}
+          onSelect={(id) => {
+            setActiveFolderId(id);
+            setPage(1);
+          }}
           onCreate={async () => {
             const { data: auth } = await supabase.auth.getUser();
             const userId = auth.user?.id;
@@ -223,14 +295,49 @@ export default function Home() {
             </h1>
           </header>
 
-          <TaskComposer value={newTitle} onChange={setNewTitle} onSubmit={addTask} />
+          <TaskComposer value={newTitle} onChange={setNewTitle} onSubmit={addTask} due={newDue ?? ""} onDueChange={(v) => setNewDue(v || null)} />
+
+          <div className="mt-3 flex items-center justify-between text-sm">
+            <label className="flex items-center gap-2 opacity-80">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={(e) => toggleSelectAll(e.target.checked)}
+                className="h-4 w-4 accent-white"
+              />
+              Seleccionar todo
+            </label>
+            <button
+              onClick={deleteSelected}
+              disabled={selectedIds.size === 0}
+              className="rounded-lg border border-neutral-300 px-3 py-1.5 opacity-80 transition-opacity hover:opacity-100 disabled:opacity-40 dark:border-neutral-700"
+            >
+              Eliminar seleccionadas ({selectedIds.size})
+            </button>
+          </div>
 
           <section className="mt-6 space-y-2">
             {open.length === 0 ? (
               <p className="opacity-60">No hay tareas pendientes.</p>
             ) : (
               open.map((t) => (
-                <TaskItem key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} />
+                <TaskItem
+                  key={t.id}
+                  task={t}
+                  onToggle={toggleTask}
+                  onDelete={deleteTask}
+                  selectable
+                  selected={selectedIds.has(t.id)}
+                  onSelectChange={(id, sel) =>
+                    setSelectedIds((prev) => {
+                      const copy = new Set(prev);
+                      if (sel) copy.add(id);
+                      else copy.delete(id);
+                      return copy;
+                    })
+                  }
+                  onOpenDetails={(task) => { setDetailsTask(task); setDetailsOpen(true); }}
+                />
               ))
             )}
           </section>
@@ -241,13 +348,30 @@ export default function Home() {
               <p className="opacity-40">Nada completado aún.</p>
             ) : (
               done.map((t) => (
-                <TaskItem key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} />
+                <TaskItem
+                  key={t.id}
+                  task={t}
+                  onToggle={toggleTask}
+                  onDelete={deleteTask}
+                  selectable
+                  selected={selectedIds.has(t.id)}
+                  onSelectChange={(id, sel) =>
+                    setSelectedIds((prev) => {
+                      const copy = new Set(prev);
+                      if (sel) copy.add(id);
+                      else copy.delete(id);
+                      return copy;
+                    })
+                  }
+                  onOpenDetails={(task) => { setDetailsTask(task); setDetailsOpen(true); }}
+                />
               ))
             )}
           </section>
 
           <div className="mt-6 flex items-center justify-between text-sm opacity-70">
             <button
+              disabled={page === 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               className="rounded-lg border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
             >
@@ -255,6 +379,7 @@ export default function Home() {
             </button>
             <span>Página {page}</span>
             <button
+              disabled={page * pageSize >= totalCount}
               onClick={() => setPage((p) => p + 1)}
               className="rounded-lg border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
             >
@@ -263,6 +388,14 @@ export default function Home() {
           </div>
         </main>
       </div>
+      {/* Modal de Detalles */}
+      <TaskDetailsModal
+        open={detailsOpen}
+        task={detailsTask}
+        onClose={() => setDetailsOpen(false)}
+        onSaveNotes={saveNotes}
+        onAddToCalendar={addTaskToCalendar}
+      />
     </div>
   );
 }
