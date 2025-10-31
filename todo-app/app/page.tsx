@@ -9,6 +9,8 @@ import { TaskItem } from "@/components/TaskItem";
 import { Sidebar } from "@/components/Sidebar";
 import { TaskComposer } from "@/components/TaskComposer";
 import { Navbar } from "@/components/Navbar";
+import { BotFab } from "@/components/BotFab";
+import { AgentChatModal } from "@/components/AgentChatModal";
 import { FolderCreateModal } from "@/components/FolderCreateModal";
 import { useToast } from "@/components/Toast";
 import type { Tables } from "@/types/database";
@@ -21,6 +23,7 @@ export default function Home() {
   const router = useRouter();
   const { show } = useToast();
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
@@ -29,6 +32,7 @@ export default function Home() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [folderModalOpen, setFolderModalOpen] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(false);
 
   // Cargar sesión y tareas del usuario
   useEffect(() => {
@@ -42,12 +46,14 @@ export default function Home() {
       }
       if (!isMounted) return;
       setUserEmail(user.email ?? null);
+      setUserId(user.id);
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
       const { data: rows } = await supabase
         .from("tasks")
         .select("*", { count: "exact" })
         .eq("user_id", user.id)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
       setTasks(rows ?? []);
       const { data: fRows } = await supabase
@@ -65,6 +71,46 @@ export default function Home() {
     };
   }, [router, supabase]);
 
+  // Suscribirse en tiempo real a cambios de tareas del usuario
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel("tasks-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "tasks", filter: `user_id=eq.${userId}` },
+        (payload) => {
+          const row = payload.new as any;
+          setTasks((prev) => {
+            if (prev.some((t) => t.id === row.id)) return prev;
+            return [{ ...(row as any) }, ...prev];
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "tasks", filter: `user_id=eq.${userId}` },
+        (payload) => {
+          const row = payload.new as any;
+          setTasks((prev) => {
+            if (row.deleted_at) return prev.filter((t) => t.id !== row.id);
+            return prev.map((t) => (t.id === row.id ? { ...t, ...(row as any) } : t));
+          });
+        }
+      )
+      // Eliminaciones duras no deberían ocurrir con soft delete, 
+      // mantenemos el listener por si acaso
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "tasks", filter: `user_id=eq.${userId}` }, (payload) => {
+        const oldRow = payload.old as any;
+        setTasks((prev) => prev.filter((t) => t.id !== oldRow.id));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, userId]);
+
   const counts = useMemo(() => {
     const done = tasks.filter((t) => t.completed).length;
     return { done, total: tasks.length, pending: tasks.length - done };
@@ -72,11 +118,21 @@ export default function Home() {
 
   const folderCounts = useMemo(() => {
     const map: Record<string, number> = {};
+    let none = 0;
+    let all = 0;
     for (const t of tasks) {
-      const fid = t.folder_id as unknown as string | undefined;
-      if (!fid) continue;
-      map[fid] = (map[fid] ?? 0) + (t.completed ? 0 : 1);
+      if (!t.completed) {
+        all++;
+        if (t.folder_id) {
+          const fid = t.folder_id as unknown as string;
+          map[fid] = (map[fid] ?? 0) + 1;
+        } else {
+          none++;
+        }
+      }
     }
+    map["__none__"] = none;
+    map["__all__"] = all;
     return map;
   }, [tasks]);
 
@@ -130,7 +186,7 @@ export default function Home() {
   async function deleteTask(id: string) {
     const prev = tasks;
     setTasks((cur) => cur.filter((t) => t.id !== id));
-    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    const { error } = await supabase.from("tasks").update({ deleted_at: new Date().toISOString() }).eq("id", id);
     if (error) {
       setTasks(prev);
       show({ title: "No se pudo eliminar la tarea", variant: "error" });
@@ -152,7 +208,9 @@ export default function Home() {
     );
   }
 
-  const visible = tasks.filter((t) => (activeFolderId ? t.folder_id === activeFolderId : true));
+  const visible = tasks.filter((t) => (
+    activeFolderId === "__none__" ? !t.folder_id : activeFolderId ? t.folder_id === activeFolderId : true
+  ));
   const [open, done] = [visible.filter((t) => !t.completed), visible.filter((t) => t.completed)];
 
   return (
@@ -262,7 +320,10 @@ export default function Home() {
             </button>
           </div>
         </main>
+        
       </div>
+      <BotFab onClick={() => setAgentOpen(true)} />
+      <AgentChatModal open={agentOpen} onClose={() => setAgentOpen(false)} />
     </div>
   );
 }

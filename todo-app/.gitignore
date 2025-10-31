@@ -39,3 +39,21 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+
+# Variables de entorno
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Dependencias
+node_modules/
+.next/
+
+# Base de datos (si usan SQLite)
+*.db
+*.sqlite
+
+# Logs
+*.log

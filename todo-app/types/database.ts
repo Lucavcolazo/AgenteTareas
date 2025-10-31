@@ -12,6 +12,7 @@ export type Tables = {
       due_date?: string | null;
       created_at: string | null;
       updated_at?: string | null;
+      deleted_at?: string | null;
       folder_id?: string | null;
     };
     Insert: {
@@ -24,6 +25,7 @@ export type Tables = {
       due_date?: string | null;
       created_at?: string | null;
       updated_at?: string | null;
+      deleted_at?: string | null;
       folder_id?: string | null;
     };
     Update: Partial<{
@@ -33,6 +35,7 @@ export type Tables = {
       category: string | null;
       due_date: string | null;
       updated_at: string | null;
+      deleted_at: string | null;
       folder_id: string | null;
     }>;
   };

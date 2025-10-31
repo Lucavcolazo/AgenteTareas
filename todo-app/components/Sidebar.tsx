@@ -29,6 +29,34 @@ export function Sidebar({
         </button>
       </div>
       <nav className="space-y-1">
+        {/* Todas */}
+        <button
+          onClick={() => onSelect(null)}
+          className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-colors ${
+            activeId === null ? "bg-neutral-100 dark:bg-neutral-900" : "hover:bg-neutral-100 dark:hover:bg-neutral-900"
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <FolderIcon className="h-4 w-4 opacity-70" />
+            <span className="text-sm">Todas</span>
+          </span>
+          <span className="rounded-md bg-neutral-200 px-1.5 text-xs dark:bg-neutral-800">{counts["__all__"] ?? 0}</span>
+        </button>
+
+        {/* Sin carpeta */}
+        <button
+          onClick={() => onSelect("__none__")}
+          className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-colors ${
+            activeId === "__none__" ? "bg-neutral-100 dark:bg-neutral-900" : "hover:bg-neutral-100 dark:hover:bg-neutral-900"
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <FolderIcon className="h-4 w-4 opacity-70" />
+            <span className="text-sm">Sin carpeta</span>
+          </span>
+          <span className="rounded-md bg-neutral-200 px-1.5 text-xs dark:bg-neutral-800">{counts["__none__"] ?? 0}</span>
+        </button>
+
         {folders.map((f) => {
           const isActive = activeId === f.id;
           return (
