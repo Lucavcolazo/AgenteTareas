@@ -226,16 +226,16 @@ export default function Home() {
     }
   }
 
-  async function confirmTaskEdit(payload: { id: string; title: string; details: string | null; dueDateIso: string | null; priority: "low" | "medium" | "high" | null }) {
+  async function confirmTaskEdit(payload: { id: string; title: string; details: string | null; dueDateIso: string | null; priority: "low" | "medium" | "high" | null; category: "work" | "personal" | "shopping" | "health" | "other" | null }) {
     const prev = tasks;
     setTasks((cur) => cur.map((t) => (
       t.id === payload.id
-        ? { ...t, title: payload.title, details: payload.details ?? null, due_date: payload.dueDateIso ?? null, priority: payload.priority ?? t.priority }
+        ? { ...t, title: payload.title, details: payload.details ?? null, due_date: payload.dueDateIso ?? null, priority: payload.priority ?? t.priority, category: payload.category ?? t.category }
         : t
     )));
     const { error } = await supabase
       .from("tasks")
-      .update({ title: payload.title, details: payload.details, due_date: payload.dueDateIso, priority: payload.priority })
+      .update({ title: payload.title, details: payload.details, due_date: payload.dueDateIso, priority: payload.priority, category: payload.category })
       .eq("id", payload.id);
     if (error) {
       setTasks(prev);

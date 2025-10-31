@@ -14,6 +14,7 @@ type TaskEditable = {
   details?: string | null;
   due_date?: string | null;
   priority?: string | null;
+  category?: string | null;
 };
 
 export function TaskEditModal({
@@ -25,7 +26,7 @@ export function TaskEditModal({
   open: boolean;
   onClose: () => void;
   task: TaskEditable | null;
-  onConfirm: (updates: { id: string; title: string; details: string | null; dueDateIso: string | null; priority: "low" | "medium" | "high" | null }) => void;
+  onConfirm: (updates: { id: string; title: string; details: string | null; dueDateIso: string | null; priority: "low" | "medium" | "high" | null; category: "work" | "personal" | "shopping" | "health" | "other" | null }) => void;
 }) {
   const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
@@ -34,6 +35,7 @@ export function TaskEditModal({
   const [dateEnd, setDateEnd] = useState("");
   const [timeEnd, setTimeEnd] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high" | "">("");
+  const [category, setCategory] = useState<"work" | "personal" | "shopping" | "health" | "other" | "">("");
   const [addingToCalendar, setAddingToCalendar] = useState(false);
   const supabase = supabaseClient();
   const { show } = useToast();
@@ -45,6 +47,8 @@ export function TaskEditModal({
     setDetails(task.details ?? "");
     const taskPriority = task.priority as "low" | "medium" | "high" | null | undefined;
     setPriority(taskPriority ?? "");
+    const taskCategory = task.category as "work" | "personal" | "shopping" | "health" | "other" | null | undefined;
+    setCategory(taskCategory ?? "");
     if (task.due_date) {
       const d = new Date(task.due_date);
       const yyyy = d.getFullYear();
@@ -216,7 +220,7 @@ export function TaskEditModal({
       const local = new Date(dateStart + "T" + timeStart + ":00");
       dueDateIso = local.toISOString();
     }
-    onConfirm({ id: task.id, title: title.trim() || "Tarea", details: details.trim() || null, dueDateIso, priority: priority || null });
+    onConfirm({ id: task.id, title: title.trim() || "Tarea", details: details.trim() || null, dueDateIso, priority: priority || null, category: category || null });
   }
 
   return (
@@ -253,6 +257,21 @@ export function TaskEditModal({
               <option value="low" className="bg-white text-black dark:bg-black dark:text-white">Baja</option>
               <option value="medium" className="bg-white text-black dark:bg-black dark:text-white">Media</option>
               <option value="high" className="bg-white text-black dark:bg-black dark:text-white">Alta</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm opacity-70">Categoría</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as "work" | "personal" | "shopping" | "health" | "other" | "")}
+              className="w-full rounded-xl border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:focus:ring-neutral-700"
+            >
+              <option value="" className="bg-white text-black dark:bg-black dark:text-white">Sin categoría</option>
+              <option value="work" className="bg-white text-black dark:bg-black dark:text-white">Trabajo</option>
+              <option value="personal" className="bg-white text-black dark:bg-black dark:text-white">Personal</option>
+              <option value="shopping" className="bg-white text-black dark:bg-black dark:text-white">Compras</option>
+              <option value="health" className="bg-white text-black dark:bg-black dark:text-white">Salud</option>
+              <option value="other" className="bg-white text-black dark:bg-black dark:text-white">Otro</option>
             </select>
           </div>
         </div>

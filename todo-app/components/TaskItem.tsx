@@ -38,12 +38,37 @@ export function TaskItem({
         {task.completada ? <Check className="h-3.5 w-3.5" /> : null}
       </button>
       <div className="flex flex-1 items-center gap-2">
-        <div
-          className={`flex-1 text-sm transition-opacity ${
-            task.completada ? "line-through opacity-50" : ""
-          }`}
-        >
-          {task.title}
+        <div className="flex flex-1 flex-col gap-0.5">
+          <div
+            className={`text-sm transition-opacity ${
+              task.completada ? "line-through opacity-50" : ""
+            }`}
+          >
+            {task.title}
+          </div>
+          {task.due_date && (
+            <div className="text-xs opacity-60">
+              {(() => {
+                const date = new Date(task.due_date);
+                const hasTime = task.due_date.includes("T");
+                if (hasTime) {
+                  return date.toLocaleString("es-AR", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                } else {
+                  return date.toLocaleDateString("es-AR", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  });
+                }
+              })()}
+            </div>
+          )}
         </div>
         <button
           aria-label="Editar"

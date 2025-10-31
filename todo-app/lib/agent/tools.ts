@@ -72,8 +72,23 @@ function validateCreateTaskArgs(args: unknown): asserts args is CreateTaskArgs {
 export async function createTaskTool(args: CreateTaskArgs) {
   validateCreateTaskArgs(args);
   const userId = await getUserId();
-  if (args.dueDate && new Date(args.dueDate).getTime() < Date.now()) {
-    throw new Error("La fecha de vencimiento debe ser futura");
+  
+  // Validación mejorada de fecha con mensaje más descriptivo
+  if (args.dueDate) {
+    const dueDateObj = new Date(args.dueDate);
+    const now = Date.now();
+    const dueTime = dueDateObj.getTime();
+    
+    if (isNaN(dueTime)) {
+      throw new Error(`Fecha inválida: ${args.dueDate}. Usa formato ISO 8601 (YYYY-MM-DDTHH:mm:ss)`);
+    }
+    
+    if (dueTime < now) {
+      const nowDate = new Date(now);
+      const diffMs = now - dueTime;
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      throw new Error(`La fecha de vencimiento debe ser futura. La fecha proporcionada (${args.dueDate}) es ${diffDays > 0 ? `${diffDays} día${diffDays > 1 ? "s" : ""} en el pasado` : "en el pasado"}. Fecha actual: ${nowDate.toISOString()}`);
+    }
   }
   const supabase = await supabaseServer();
   let resolvedFolderId = args.folderId ?? null;
