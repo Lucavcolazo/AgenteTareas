@@ -24,11 +24,11 @@ export function TaskComposer({
           if (e.key === "Enter") onSubmit();
         }}
         placeholder={placeholder}
-        className="flex-1 rounded-xl border border-neutral-300 bg-transparent px-4 py-3 outline-none transition-shadow focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:focus:ring-neutral-700"
+        className="flex-1 rounded-xl border border-white/30 bg-black/30 backdrop-blur-sm px-4 py-3 text-white placeholder:text-white/60 outline-none transition-shadow focus:ring-2 focus:ring-white/30 focus:border-white/50"
       />
       <button
         onClick={onSubmit}
-        className="grid h-[46px] w-[46px] place-items-center rounded-xl bg-black text-white transition-opacity hover:opacity-90 dark:bg-white dark:text-black"
+        className="grid h-[46px] w-[46px] place-items-center rounded-xl bg-white text-black transition-opacity hover:opacity-90"
       >
         <Plus className="h-5 w-5" />
       </button>

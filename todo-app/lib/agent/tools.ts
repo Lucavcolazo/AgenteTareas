@@ -5,7 +5,7 @@ export type CreateTaskArgs = {
   title: string;
   priority?: "low" | "medium" | "high";
   dueDate?: string;
-  category?: "work" | "personal" | "shopping" | "health" | "other";
+  category?: "study" | "work" | "leisure" | "personal";
   folderId?: string | null;
   folderName?: string;
   details?: string;
@@ -17,7 +17,7 @@ export type UpdateTaskArgs = {
   completed?: boolean;
   priority?: "low" | "medium" | "high";
   dueDate?: string;
-  category?: "work" | "personal" | "shopping" | "health" | "other";
+  category?: "study" | "work" | "leisure" | "personal";
   details?: string | null;
   folderId?: string | null;
 };
@@ -29,8 +29,8 @@ export type SearchTasksArgs = {
   query?: string;
   completed?: boolean | null;
   priority?: "low" | "medium" | "high";
-  category?: "work" | "personal" | "shopping" | "health" | "other";
-  categories?: ("work" | "personal" | "shopping" | "health" | "other")[];
+  category?: "study" | "work" | "leisure" | "personal";
+  categories?: ("study" | "work" | "leisure" | "personal")[];
   dueDateFrom?: string;
   dueDateTo?: string;
   sortBy?: "createdAt" | "dueDate" | "priority" | "title";
@@ -60,8 +60,8 @@ function validateCreateTaskArgs(args: unknown): asserts args is CreateTaskArgs {
   if (a.priority && !["low", "medium", "high"].includes(a.priority as string)) {
     throw new Error("Prioridad debe ser: low, medium o high");
   }
-  if (a.category && !["work", "personal", "shopping", "health", "other"].includes(a.category as string)) {
-    throw new Error("Categoría debe ser: work, personal, shopping, health u other");
+  if (a.category && !["study", "work", "leisure", "personal"].includes(a.category as string)) {
+    throw new Error("Categoría debe ser: study, work, leisure o personal");
   }
   if (a.dueDate && typeof a.dueDate === "string") {
     const date = new Date(a.dueDate);
@@ -125,36 +125,8 @@ export async function createTaskTool(args: CreateTaskArgs) {
     .single();
   if (error) throw error;
 
-  // Si tiene fecha, intentar agregar a Google Calendar automáticamente
-  let calendarResult: { success: boolean; eventId?: string; url?: string; error?: string } | null = null;
-  if (args.dueDate) {
-    const startDate = new Date(args.dueDate);
-    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hora después
-    
-    try {
-      calendarResult = await addEventToGoogleCalendar(userId, {
-        title: args.title.trim(),
-        description: args.details ?? "",
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-      });
-    } catch (error) {
-      // Si falla, generar URL manual como fallback
-      calendarResult = {
-        success: false,
-        url: generateGoogleCalendarUrl({
-          title: args.title.trim(),
-          description: args.details ?? "",
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-        }),
-        error: error instanceof Error ? error.message : "Error desconocido",
-      };
-    }
-  }
-
   const result = data as unknown as Record<string, unknown>;
-  return { ...result, calendarResult };
+  return result;
 }
 
 function validateUpdateTaskArgs(args: unknown): asserts args is UpdateTaskArgs {
@@ -166,8 +138,8 @@ function validateUpdateTaskArgs(args: unknown): asserts args is UpdateTaskArgs {
   if (a.priority && !["low", "medium", "high"].includes(a.priority as string)) {
     throw new Error("Prioridad debe ser: low, medium o high");
   }
-  if (a.category && !["work", "personal", "shopping", "health", "other"].includes(a.category as string)) {
-    throw new Error("Categoría debe ser: work, personal, shopping, health u other");
+  if (a.category && !["study", "work", "leisure", "personal"].includes(a.category as string)) {
+    throw new Error("Categoría debe ser: study, work, leisure o personal");
   }
   if (a.dueDate && typeof a.dueDate === "string") {
     const date = new Date(a.dueDate);
@@ -259,8 +231,22 @@ export async function searchTasksTool(args: SearchTasksArgs) {
     const qtext = args.query.trim();
     q = q.or(`title.ilike.%${qtext}%,details.ilike.%${qtext}%`);
   }
-  if (args.dueDateFrom) q = q.gte("due_date" as never, args.dueDateFrom);
-  if (args.dueDateTo) q = q.lte("due_date" as never, args.dueDateTo);
+  // Búsqueda por rango de fechas
+  // Las fechas pueden venir como ISO string o necesitar ajuste para cubrir el día completo
+  if (args.dueDateFrom) {
+    q = q.gte("due_date" as never, args.dueDateFrom);
+  }
+  if (args.dueDateTo) {
+    // Si la fecha de fin no tiene hora específica, extender al final del día
+    let toDateStr = args.dueDateTo;
+    // Si termina en 23:59:59, está bien; si no, asegurar que cubra todo el día
+    if (!toDateStr.includes("T") || toDateStr.endsWith("T00:00:00")) {
+      const date = new Date(args.dueDateTo);
+      date.setUTCHours(23, 59, 59, 999);
+      toDateStr = date.toISOString();
+    }
+    q = q.lte("due_date" as never, toDateStr);
+  }
   const sortMap: Record<string, string> = { createdAt: "created_at", dueDate: "due_date", priority: "priority", title: "title" };
   // Por defecto, ordenar por created_at descendente (más recientes primero)
   if (args.sortBy) {
@@ -601,6 +587,81 @@ export async function getTaskStatsTool(args: GetTaskStatsArgs) {
     },
     ...(grouped ? { grouped } : {}),
   };
+}
+
+export type AddTaskToCalendarArgs = {
+  taskId: string;
+  title?: string;
+  dueDate?: string;
+  details?: string;
+};
+
+function validateAddTaskToCalendarArgs(args: unknown): asserts args is AddTaskToCalendarArgs {
+  if (!args || typeof args !== "object") throw new Error("Parámetros inválidos");
+  const a = args as Record<string, unknown>;
+  if (!a.taskId || typeof a.taskId !== "string") {
+    throw new Error("taskId es requerido y debe ser un string");
+  }
+  if (a.dueDate && typeof a.dueDate === "string") {
+    const date = new Date(a.dueDate);
+    if (isNaN(date.getTime())) throw new Error("Formato de fecha inválido (usa ISO 8601)");
+  }
+}
+
+export async function addTaskToCalendarTool(args: AddTaskToCalendarArgs) {
+  validateAddTaskToCalendarArgs(args);
+  const userId = await getUserId();
+  const supabase = await supabaseServer();
+
+  // Obtener la tarea de la base de datos
+  const { data: task, error } = await supabase
+    .from("tasks")
+    .select("title, due_date, details")
+    .eq("id", args.taskId)
+    .eq("user_id", userId)
+    .is("deleted_at", null)
+    .single();
+
+  if (error || !task) {
+    throw new Error(`No se encontró la tarea con ID ${args.taskId}`);
+  }
+
+  // Usar los datos proporcionados o los de la base de datos
+  const title = args.title || task.title || "Tarea";
+  const dueDate = args.dueDate || task.due_date;
+  const details = args.details !== undefined ? args.details : (task.details || "");
+
+  if (!dueDate) {
+    throw new Error("La tarea no tiene fecha de vencimiento. No se puede agregar al calendario.");
+  }
+
+  const startDate = new Date(dueDate);
+  const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hora después
+
+  try {
+    const calendarResult = await addEventToGoogleCalendar(userId, {
+      title: title.trim(),
+      description: details,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+    });
+
+    return calendarResult;
+  } catch (error) {
+    // Si falla, generar URL manual como fallback
+    const calendarUrl = generateGoogleCalendarUrl({
+      title: title.trim(),
+      description: details,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+    });
+
+    return {
+      success: false,
+      url: calendarUrl,
+      error: error instanceof Error ? error.message : "Error desconocido",
+    };
+  }
 }
 
 

@@ -12,18 +12,10 @@ export function Modal({ open, onClose, children, title }: { open: boolean; onClo
       const originalStyle = window.getComputedStyle(document.body).overflow;
       // Bloquear scroll
       document.body.style.overflow = "hidden";
-      // Para móviles, también prevenir el touchmove en el fondo
-      const preventTouchMove = (e: TouchEvent) => {
-        if (e.target === document.body || e.target === document.documentElement) {
-          e.preventDefault();
-        }
-      };
-      document.addEventListener("touchmove", preventTouchMove, { passive: false });
       
       return () => {
         // Restaurar scroll al cerrar
         document.body.style.overflow = originalStyle;
-        document.removeEventListener("touchmove", preventTouchMove);
       };
     }
   }, [open]);
@@ -31,27 +23,37 @@ export function Modal({ open, onClose, children, title }: { open: boolean; onClo
   if (!open) return null;
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 md:p-4" 
-      style={{ touchAction: 'none' }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 md:p-4" 
       onClick={onClose}
+      onTouchStart={(e) => {
+        // Solo prevenir si se toca el fondo, no el modal
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+        }
+      }}
     >
       <div
-        className="flex h-full w-full flex-col bg-white dark:bg-black md:h-auto md:max-w-3xl md:rounded-2xl md:border md:border-neutral-200 md:shadow-xl dark:md:border-neutral-800"
-        style={{ maxHeight: '100vh', touchAction: 'auto' }}
+        className="flex h-full w-full flex-col bg-black md:h-auto md:max-w-2xl md:rounded-2xl md:border md:border-white/10 md:shadow-xl"
+        style={{ maxHeight: '100vh' }}
         onClick={(e) => {
-          e.stopPropagation();
-        }}
-        onTouchMove={(e) => {
-          // Permitir scroll dentro del modal pero no en el fondo
           e.stopPropagation();
         }}
       >
         {title ? (
-          <div className="flex-shrink-0 border-b border-neutral-200 px-4 py-3 dark:border-neutral-800 md:hidden">
-            <h3 className="text-base font-semibold">{title}</h3>
+          <div className="flex-shrink-0 border-b border-white/10 px-4 py-3 md:hidden flex items-center justify-between">
+            <h3 className="text-base font-semibold text-white">{title}</h3>
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-white hover:bg-white/10 transition-colors"
+              aria-label="Cerrar"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         ) : null}
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">{children}</div>
+        <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">{children}</div>
       </div>
     </div>
   );

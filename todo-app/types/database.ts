@@ -44,6 +44,7 @@ export type Tables = {
       id: string;
       user_id: string | null;
       name: string;
+      parent_id?: string | null;
       created_at: string | null;
       updated_at?: string | null;
     };
@@ -51,11 +52,13 @@ export type Tables = {
       id?: string;
       user_id?: string | null;
       name: string;
+      parent_id?: string | null;
       created_at?: string | null;
       updated_at?: string | null;
     };
     Update: Partial<{
       name: string;
+      parent_id: string | null;
       updated_at: string | null;
     }>;
   };

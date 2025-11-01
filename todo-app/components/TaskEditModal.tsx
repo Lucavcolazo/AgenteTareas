@@ -26,7 +26,7 @@ export function TaskEditModal({
   open: boolean;
   onClose: () => void;
   task: TaskEditable | null;
-  onConfirm: (updates: { id: string; title: string; details: string | null; dueDateIso: string | null; priority: "low" | "medium" | "high" | null; category: "work" | "personal" | "shopping" | "health" | "other" | null }) => void;
+  onConfirm: (updates: { id: string; title: string; details: string | null; dueDateIso: string | null; priority: "low" | "medium" | "high" | null; category: "study" | "work" | "leisure" | "personal" | null }) => void;
 }) {
   const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
@@ -35,7 +35,7 @@ export function TaskEditModal({
   const [dateEnd, setDateEnd] = useState("");
   const [timeEnd, setTimeEnd] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high" | "">("");
-  const [category, setCategory] = useState<"work" | "personal" | "shopping" | "health" | "other" | "">("");
+  const [category, setCategory] = useState<"study" | "work" | "leisure" | "personal" | "">("");
   const [addingToCalendar, setAddingToCalendar] = useState(false);
   const supabase = supabaseClient();
   const { show } = useToast();
@@ -47,7 +47,7 @@ export function TaskEditModal({
     setDetails(task.details ?? "");
     const taskPriority = task.priority as "low" | "medium" | "high" | null | undefined;
     setPriority(taskPriority ?? "");
-    const taskCategory = task.category as "work" | "personal" | "shopping" | "health" | "other" | null | undefined;
+    const taskCategory = task.category as "study" | "work" | "leisure" | "personal" | null | undefined;
     setCategory(taskCategory ?? "");
     if (task.due_date) {
       const d = new Date(task.due_date);
@@ -225,105 +225,104 @@ export function TaskEditModal({
 
   return (
     <Modal open={open} onClose={onClose} title="Editar tarea">
-      <div className="space-y-3 md:space-y-4">
+      <div className="p-6 md:p-8 space-y-4 md:space-y-5">
         <div className="space-y-2">
-          <label className="text-sm opacity-70">Título</label>
+          <label className="text-sm font-medium text-white opacity-90">Título</label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded-xl border border-neutral-300 bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:focus:ring-neutral-700"
+            className="w-full rounded-xl border border-white/20 bg-black/50 backdrop-blur-sm px-4 py-3 text-white placeholder:text-white/60 outline-none focus:ring-2 focus:ring-white/30 focus:border-white/40"
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm opacity-70">Descripción</label>
+          <label className="text-sm font-medium text-white opacity-90">Descripción</label>
           <textarea
             rows={4}
             value={details}
             onChange={(e) => setDetails(e.target.value)}
-            className="w-full resize-y rounded-xl border border-neutral-300 bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:focus:ring-neutral-700"
+            className="w-full resize-y rounded-xl border border-white/20 bg-black/50 backdrop-blur-sm px-4 py-3 text-white placeholder:text-white/60 outline-none focus:ring-2 focus:ring-white/30 focus:border-white/40"
           />
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm opacity-70">Prioridad</label>
+            <label className="text-sm font-medium text-white opacity-90">Prioridad</label>
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value as "low" | "medium" | "high" | "")}
-              className="w-full rounded-xl border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:focus:ring-neutral-700"
+              className="w-full rounded-xl border border-white/20 bg-black/50 backdrop-blur-sm px-4 py-3 text-white outline-none focus:ring-2 focus:ring-white/30 focus:border-white/40"
             >
-              <option value="" className="bg-white text-black dark:bg-black dark:text-white">Sin prioridad</option>
-              <option value="low" className="bg-white text-black dark:bg-black dark:text-white">Baja</option>
-              <option value="medium" className="bg-white text-black dark:bg-black dark:text-white">Media</option>
-              <option value="high" className="bg-white text-black dark:bg-black dark:text-white">Alta</option>
+              <option value="" className="bg-black text-white">Sin prioridad</option>
+              <option value="low" className="bg-black text-white">Baja</option>
+              <option value="medium" className="bg-black text-white">Media</option>
+              <option value="high" className="bg-black text-white">Alta</option>
             </select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm opacity-70">Categoría</label>
+            <label className="text-sm font-medium text-white opacity-90">Categoría</label>
             <select
               value={category}
-              onChange={(e) => setCategory(e.target.value as "work" | "personal" | "shopping" | "health" | "other" | "")}
-              className="w-full rounded-xl border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:focus:ring-neutral-700"
+              onChange={(e) => setCategory(e.target.value as "study" | "work" | "leisure" | "personal" | "")}
+              className="w-full rounded-xl border border-white/20 bg-black/50 backdrop-blur-sm px-4 py-3 text-white outline-none focus:ring-2 focus:ring-white/30 focus:border-white/40"
             >
-              <option value="" className="bg-white text-black dark:bg-black dark:text-white">Sin categoría</option>
-              <option value="work" className="bg-white text-black dark:bg-black dark:text-white">Trabajo</option>
-              <option value="personal" className="bg-white text-black dark:bg-black dark:text-white">Personal</option>
-              <option value="shopping" className="bg-white text-black dark:bg-black dark:text-white">Compras</option>
-              <option value="health" className="bg-white text-black dark:bg-black dark:text-white">Salud</option>
-              <option value="other" className="bg-white text-black dark:bg-black dark:text-white">Otro</option>
+              <option value="" className="bg-black text-white">Sin categoría</option>
+              <option value="study" className="bg-black text-white">Estudio</option>
+              <option value="work" className="bg-black text-white">Trabajo</option>
+              <option value="leisure" className="bg-black text-white">Ocio</option>
+              <option value="personal" className="bg-black text-white">Personal</option>
             </select>
           </div>
         </div>
 
-        <div className="space-y-3 rounded-xl border border-neutral-200 p-3 md:p-4 dark:border-neutral-800">
-          <h3 className="text-sm font-medium opacity-70">Rango de tiempo</h3>
+        <div className="space-y-3 rounded-xl border border-white/10 bg-black/30 p-4 md:p-5">
+          <h3 className="text-sm font-medium text-white opacity-90">Rango de tiempo</h3>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-sm opacity-70">Desde - Fecha</label>
+              <label className="text-sm text-white opacity-80">Desde - Fecha</label>
               <input
                 type="date"
                 value={dateStart}
                 onChange={(e) => setDateStart(e.target.value)}
-                className="w-full rounded-xl border border-neutral-300 bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:focus:ring-neutral-700"
+                className="w-full rounded-xl border border-white/20 bg-black/50 backdrop-blur-sm px-4 py-3 text-white outline-none focus:ring-2 focus:ring-white/30 focus:border-white/40 [color-scheme:dark]"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm opacity-70">Desde - Hora</label>
+              <label className="text-sm text-white opacity-80">Desde - Hora</label>
               <input
                 type="time"
                 value={timeStart}
                 onChange={(e) => setTimeStart(e.target.value)}
-                className="w-full rounded-xl border border-neutral-300 bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:focus:ring-neutral-700"
+                className="w-full rounded-xl border border-white/20 bg-black/50 backdrop-blur-sm px-4 py-3 text-white outline-none focus:ring-2 focus:ring-white/30 focus:border-white/40 [color-scheme:dark]"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm opacity-70">Hasta - Fecha</label>
+              <label className="text-sm text-white opacity-80">Hasta - Fecha</label>
               <input
                 type="date"
                 value={dateEnd}
                 onChange={(e) => setDateEnd(e.target.value)}
-                className="w-full rounded-xl border border-neutral-300 bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:focus:ring-neutral-700"
+                className="w-full rounded-xl border border-white/20 bg-black/50 backdrop-blur-sm px-4 py-3 text-white outline-none focus:ring-2 focus:ring-white/30 focus:border-white/40 [color-scheme:dark]"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm opacity-70">Hasta - Hora</label>
+              <label className="text-sm text-white opacity-80">Hasta - Hora</label>
               <input
                 type="time"
                 value={timeEnd}
                 onChange={(e) => setTimeEnd(e.target.value)}
-                className="w-full rounded-xl border border-neutral-300 bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:focus:ring-neutral-700"
+                className="w-full rounded-xl border border-white/20 bg-black/50 backdrop-blur-sm px-4 py-3 text-white outline-none focus:ring-2 focus:ring-white/30 focus:border-white/40 [color-scheme:dark]"
               />
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2">
           {googleCalendarUrl ? (
             <button
               onClick={handleAddToCalendar}
               disabled={addingToCalendar}
-              className="flex items-center justify-center gap-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900 disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-black/50 backdrop-blur-sm px-4 py-2.5 text-white transition-colors hover:bg-black/70 disabled:opacity-50"
               title="Agregar a Google Calendar"
             >
               <Calendar className="h-4 w-4" />
@@ -331,12 +330,22 @@ export function TaskEditModal({
               <span className="sm:hidden">{addingToCalendar ? "Agregando..." : "Calendar"}</span>
             </button>
           ) : (
-            <span className="text-xs opacity-50 sm:text-sm">Define rango de tiempo para Calendar</span>
+            <span className="text-xs text-white/60 sm:text-sm">Define rango de tiempo para Calendar</span>
           )}
 
-          <div className="flex gap-2">
-            <button onClick={onClose} className="flex-1 rounded-xl border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 sm:flex-initial">Cancelar</button>
-            <button onClick={submit} className="flex-1 rounded-xl bg-black px-3 py-2 text-sm text-white dark:bg-white dark:text-black sm:flex-initial">Guardar</button>
+          <div className="flex gap-3">
+            <button 
+              onClick={onClose} 
+              className="flex-1 rounded-xl border border-white/20 bg-black/50 backdrop-blur-sm px-4 py-2.5 text-sm text-white transition-colors hover:bg-black/70 sm:flex-initial"
+            >
+              Cancelar
+            </button>
+            <button 
+              onClick={submit} 
+              className="flex-1 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-black transition-opacity hover:opacity-90 sm:flex-initial"
+            >
+              Guardar
+            </button>
           </div>
         </div>
       </div>

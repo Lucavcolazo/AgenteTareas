@@ -7,6 +7,7 @@ import {
   searchTasksTool,
   getTaskStatsTool,
   deleteTasksBulkTool,
+  addTaskToCalendarTool,
 } from "@/lib/agent/tools";
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
@@ -22,7 +23,8 @@ type ToolDefinition = {
       | "deleteTask"
       | "deleteTasksBulk"
       | "searchTasks"
-      | "getTaskStats";
+      | "getTaskStats"
+      | "addTaskToCalendar";
     description: string;
     parameters: unknown;
   };
@@ -63,7 +65,7 @@ export async function POST(req: Request) {
             title: { type: "string" },
             priority: { type: "string", enum: ["low", "medium", "high"] },
             dueDate: { type: "string", description: "Fecha en formato ISO 8601 (YYYY-MM-DDTHH:mm:ss). Si el usuario dice 'dentro de X días', calcula: fecha actual + X días. Si dice 'DD/MM a las HH', interpreta como día/mes del año 2025. CONVIERTE SIEMPRE a ISO 8601 antes de enviar." },
-            category: { type: "string", enum: ["work", "personal", "shopping", "health", "other"] },
+            category: { type: "string", enum: ["study", "work", "leisure", "personal"] },
             details: { type: "string" },
             folderId: { type: "string", nullable: true },
             folderName: { type: "string", nullable: true },
@@ -124,11 +126,11 @@ export async function POST(req: Request) {
         },
       },
     },
-    {
+      {
       type: "function",
       function: {
         name: "searchTasks",
-        description: "OBLIGATORIO: Usa esta herramienta para obtener las tareas REALES del usuario desde la base de datos. NUNCA inventes tareas. Si el usuario pregunta 'qué tareas tengo', 'muéstrame mis tareas', etc., DEBES usar esta herramienta primero. Devuelve un objeto con 'items' (array de tareas) y 'total' (número). Solo menciona tareas que estén en el array 'items' del resultado.",
+        description: "OBLIGATORIO: Usa esta herramienta para obtener las tareas REALES del usuario desde la base de datos. NUNCA inventes tareas. Si el usuario pregunta 'qué tareas tengo', 'muéstrame mis tareas', 'tengo una tarea para el 17/11', etc., DEBES usar esta herramienta primero. IMPORTANTE PARA FECHAS: Si el usuario menciona una fecha específica como '17/11', '17 de noviembre', 'para el 17/11', convierte la fecha a formato ISO y busca usando dueDateFrom y dueDateTo para el rango completo de ese día. Ejemplo: Para '17/11/2025' (o '17/11' asumiendo año 2025), usa dueDateFrom='2025-11-17T00:00:00' y dueDateTo='2025-11-17T23:59:59' para encontrar todas las tareas de ese día. Devuelve un objeto con 'items' (array de tareas) y 'total' (número). Solo menciona tareas que estén en el array 'items' del resultado.",
         parameters: {
           type: "object",
           properties: {
@@ -136,8 +138,8 @@ export async function POST(req: Request) {
             completed: { type: "boolean", description: "Filtrar por estado completado: true=completadas, false=pendientes, omitir=todas (opcional)" },
             priority: { type: "string", enum: ["low", "medium", "high"], description: "Filtrar por prioridad (opcional)" },
             category: { type: "string", enum: ["work", "personal", "shopping", "health", "other"], description: "Filtrar por categoría (opcional)" },
-            dueDateFrom: { type: "string", description: "Fecha mínima (ISO, opcional)" },
-            dueDateTo: { type: "string", description: "Fecha máxima (ISO, opcional)" },
+            dueDateFrom: { type: "string", description: "Fecha mínima en formato ISO 8601 (YYYY-MM-DDTHH:mm:ss). Para buscar un día específico, usa 00:00:00 del día. Ejemplo: '2025-11-17T00:00:00' para el 17 de noviembre de 2025." },
+            dueDateTo: { type: "string", description: "Fecha máxima en formato ISO 8601 (YYYY-MM-DDTHH:mm:ss). Para buscar un día específico, usa 23:59:59 del día. Ejemplo: '2025-11-17T23:59:59' para el 17 de noviembre de 2025." },
             sortBy: { type: "string", enum: ["createdAt", "dueDate", "priority", "title"], description: "Campo de ordenamiento (opcional)" },
             sortOrder: { type: "string", enum: ["asc", "desc"], description: "Orden ascendente o descendente (opcional)" },
             limit: { type: "number", description: "Número máximo de resultados (opcional, por defecto hasta 1000)" },
@@ -156,6 +158,23 @@ export async function POST(req: Request) {
             period: { type: "string", enum: ["today", "week", "month", "year", "all-time"] },
             groupBy: { type: "string", enum: ["category", "priority", "date"] },
           },
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "addTaskToCalendar",
+        description: "Agregar una tarea existente a Google Calendar. IMPORTANTE: Solo usa esta herramienta cuando el usuario explícitamente confirme que quiere agregar la tarea al calendario. No la uses automáticamente después de crear una tarea.",
+        parameters: {
+          type: "object",
+          properties: {
+            taskId: { type: "string", description: "ID único de la tarea a agregar al calendario" },
+            title: { type: "string", description: "Título del evento (opcional, se obtiene de la tarea si no se proporciona)" },
+            dueDate: { type: "string", description: "Fecha en formato ISO 8601 (opcional, se obtiene de la tarea si no se proporciona)" },
+            details: { type: "string", description: "Descripción del evento (opcional, se obtiene de la tarea si no se proporciona)" },
+          },
+          required: ["taskId"],
         },
       },
     },
@@ -198,10 +217,11 @@ export async function POST(req: Request) {
       "CUÁNDO USAR HERRAMIENTAS:",
       "- Solo cuando el usuario te pida EXPLÍCITAMENTE crear, buscar, actualizar, eliminar tareas o ver estadísticas.",
       "- Cuando el usuario pregunte '¿qué tareas tengo?', 'muéstrame mis tareas', 'lista mis tareas', 'qué tareas pendientes tengo', 'dame una lista de tareas', etc., ENTONCES ejecuta searchTasks. Si pregunta por pendientes, usa completed=false. Si pregunta por todas, usa searchTasks sin filtros.",
+      "- CUANDO EL USUARIO MENCIONE UNA FECHA ESPECÍFICA (ej: 'tengo una tarea para el 17/11', 'qué tareas tengo el 17 de noviembre', 'muéstrame tareas del 17/11', 'tengo algo para el día 17'), SIEMPRE ejecuta searchTasks con dueDateFrom y dueDateTo para buscar en ese día completo. Convierte la fecha mencionada a formato ISO: para '17/11' o '17 de noviembre', usa dueDateFrom='2025-11-17T00:00:00' y dueDateTo='2025-11-17T23:59:59'. Si el usuario menciona un año diferente, úsalo; si no, asume 2025.",
       "- NO uses herramientas si el usuario solo quiere conversar, hacer preguntas generales, o preguntar sobre tus capacidades.",
       "- NUNCA mencionar tareas que no estén en el resultado.items de searchTasks. Si no ejecutas searchTasks, NO mencionar ninguna tarea.",
       "- Después de ejecutar searchTasks, lee el campo 'items' del resultado. Lista SOLO las tareas que están en ese array.",
-      "- Si searchTasks devuelve items vacío [], di exactamente: 'No tienes tareas' o 'No tienes tareas pendientes' según el caso.",
+      "- Si searchTasks devuelve items vacío [], di exactamente: 'No tienes tareas' o 'No tienes tareas pendientes' o 'No tienes tareas para esa fecha' según el caso.",
       "- Al listar tareas, muestra el campo 'title' de cada objeto en items. Puedes incluir otros campos como 'priority', 'category', 'due_date' si están disponibles en el objeto.",
       "- Confirmar acciones destructivas (borrados masivos) si el usuario no es explícito.",
       "- Si el usuario se refiere a una tarea por título pero no por ID, primero usa searchTasks para localizarla.",
@@ -221,25 +241,31 @@ export async function POST(req: Request) {
       "  * Siempre convertir a formato ISO 8601 (YYYY-MM-DDTHH:mm:ss) antes de pasar a createTask.",
       "  * EJEMPLO: Usuario dice 'dentro de 3 días a las 15hs' y hoy es 31/10/2025 -> dueDate debe ser '2025-11-03T15:00:00'.",
       "  * EJEMPLO: Usuario dice '03/11 a las 15hs' -> dueDate debe ser '2025-11-03T15:00:00' (usar año 2025).",
-      "- Valida parámetros: título no vacío; dueDate futura (pero verifica que el cálculo sea correcto); prioridad en {low, medium, high}; categoría en {work, personal, shopping, health, other}.",
+      "  * IMPORTANTE: Si el usuario pregunta sobre tareas de una fecha específica (ej: 'tengo una tarea para el 17/11', 'qué tareas tengo el 17 de noviembre'), usa searchTasks con dueDateFrom='2025-11-17T00:00:00' y dueDateTo='2025-11-17T23:59:59' para buscar todas las tareas de ese día completo.",
+      "- Valida parámetros: título no vacío; dueDate futura (pero verifica que el cálculo sea correcto); prioridad en {low, medium, high}; categoría en {study, work, leisure, personal}.",
       "- Cuando uses herramientas, explica de forma natural qué estás haciendo, pero sin ser demasiado técnico. Por ejemplo: 'Déjame buscar tus tareas...' o 'Voy a crear esa tarea para ti...'",
       "- Responde de forma conversacional y amigable. Cuando ejecutes una tool, resume el resultado en español con un tono natural y positivo.",
       "- Al listar tareas o resultados, usa un formato de lista con viñetas o numerado, una por línea, mostrando el título de cada tarea del resultado.",
       "- Si el usuario solo quiere conversar o hacer preguntas generales, responde de forma natural sin usar herramientas.",
       "- Si la búsqueda devuelve múltiples posibles coincidencias, enumera opciones con números y pide precisión.",
       "- Para comandos múltiples en un mensaje (ej: 'crea tarea X y marca Y como completada'), ejecuta todas las tools necesarias en secuencia.",
-      "- Si creas una tarea con fecha/hora y la respuesta incluye 'calendarResult':",
-      "  * Si success=true: menciona que se agregó automáticamente a Google Calendar y proporciona el enlace (url).",
-      "  * Si success=false: menciona que no se pudo agregar automáticamente pero proporciona el enlace (url) para que el usuario lo haga manualmente.",
+      "- GOOGLE CALENDAR: Cuando crees una tarea con fecha/hora (dueDate), NUNCA la agregues automáticamente al calendario. En su lugar:",
+      "  1. Informa al usuario que la tarea fue creada exitosamente.",
+      "  2. Pregunta al usuario si desea agregarla a Google Calendar. Ejemplo: 'Tarea creada exitosamente. ¿Te gustaría agregarla a tu Google Calendar?'",
+      "  3. Solo cuando el usuario confirme explícitamente (diciendo 'sí', 'agrega', 'agrégala', 'sí agrégalo', etc.), entonces usa la herramienta addTaskToCalendar con el taskId de la tarea creada.",
+      "  4. Si el usuario dice 'no', 'no quiero', 'no gracias', etc., simplemente confirma y no agregues al calendario.",
+      "  5. Si la herramienta addTaskToCalendar devuelve success=true, informa que se agregó exitosamente y proporciona el enlace (url).",
+      "  6. Si success=false, informa que no se pudo agregar automáticamente pero proporciona el enlace (url) para que el usuario lo haga manualmente.",
       "Ejemplos de conversación natural (NO los muestres al usuario):",
       "Usuario: 'hola' -> Responde: '¡Hola, ${displayName}! ¿En qué puedo ayudarte hoy con tus tareas?' (NO uses herramientas)",
       "Usuario: '¿qué puedes hacer?' -> Responde explicando las herramientas disponibles de forma amigable (NO uses herramientas)",
       "Usuario: '¿Qué tareas tengo?' -> Responde: 'Déjame buscar tus tareas...' -> EJECUTA searchTasks {} -> Recibes { items: [{ title: 'Tarea 1', ... }, { title: 'Tarea 2', ... }], total: 2 } -> Responde: 'Encontré 2 tareas: 1) Tarea 1, 2) Tarea 2' (solo las que están en items).",
       "Usuario: 'dame una lista de tareas que tengo que hacer todavía' -> Responde: 'Déjame revisar tus tareas pendientes...' -> EJECUTA searchTasks { completed:false } -> Recibes { items: [{ title: 'Ir al super', ... }], total: 1 } -> Responde: 'Tienes 1 tarea pendiente: 1) Ir al super' (solo la que está en items).",
       "Usuario: 'Muéstrame mis tareas pendientes' -> Responde: 'Claro, déjame ver...' -> EJECUTA searchTasks { completed:false } -> Si items=[], responde 'No tienes tareas pendientes'. Si items tiene elementos, lista cada title.",
+      "Usuario: 'tengo una tarea para el 17/11' o 'qué tareas tengo el 17 de noviembre' -> Responde: 'Déjame buscar...' -> EJECUTA searchTasks { dueDateFrom:'2025-11-17T00:00:00', dueDateTo:'2025-11-17T23:59:59' } -> Si items=[], responde 'No tienes tareas para el 17 de noviembre'. Si items tiene elementos, lista cada title con su información.",
       "Usuario: 'Crea tarea que sea Ir al super, recordame esto dentro de 3 dias a las 15hs' -> Si hoy es 31/10/2025, calcular: 31/10/2025 + 3 días = 03/11/2025, hora 15:00 -> createTask { title:'Ir al super', dueDate:'2025-11-03T15:00:00' }",
       "Usuario: 'que la fecha sea para el 03/11 a las 15hs' -> Interpretar 03/11 como 03 de noviembre de 2025 (año actual) -> createTask { dueDate:'2025-11-03T15:00:00' }",
-      "Usuario: 'Agrega tarea comprar leche mañana' -> Si hoy es 31/10/2025, mañana = 01/11/2025 -> createTask { title:'comprar leche', dueDate:'2025-11-01T00:00:00' } -> Si calendarResult.success=true: 'Agregada y añadida a Google Calendar: [url]'. Si success=false: 'Agregada. Puedes añadirla a Google Calendar: [url]'",
+      "Usuario: 'Agrega tarea comprar leche mañana' -> Si hoy es 31/10/2025, mañana = 01/11/2025 -> createTask { title:'comprar leche', dueDate:'2025-11-01T00:00:00' } -> Recibes { id:'xxx', title:'comprar leche', ... } -> Responde: 'Tarea creada exitosamente. ¿Te gustaría agregarla a tu Google Calendar?' -> Usuario: 'sí' -> addTaskToCalendar { taskId:'xxx' } -> Si success=true: 'Agregada a Google Calendar exitosamente: [url]'. Si success=false: 'No se pudo agregar automáticamente, pero puedes hacerlo manualmente: [url]'",
       "Usuario: 'Marca como completada la tarea del informe' -> searchTasks { query:'informe' } -> updateTask { taskId:<id>, completed:true }",
       "Usuario: 'agrega queso crema a la lista de compras' -> searchTasks { query:'compra' o 'super' } -> Lee details actual: 'Comprar bananas y manzanas' -> updateTask { taskId:<id>, details:'Comprar bananas, manzanas, queso crema' } -> COMBINAR, no reemplazar",
       "Usuario: 'añade jamón a la tarea de ir al super' -> searchTasks { query:'super' } -> Lee details actual: 'Comprar bananas, queso' -> updateTask { taskId:<id>, details:'Comprar bananas, queso, jamón' } -> AGREGAR, mantener lo existente",
@@ -275,9 +301,10 @@ export async function POST(req: Request) {
         if (name === "createTask") result = await createTaskTool(args as never);
         else if (name === "updateTask") result = await updateTaskTool(args as never);
         else if (name === "deleteTask") result = await deleteTaskTool(args as never);
+        else if (name === "deleteTasksBulk") result = await deleteTasksBulkTool(args as never);
         else if (name === "searchTasks") result = await searchTasksTool(args as never);
         else if (name === "getTaskStats") result = await getTaskStatsTool(args as never);
-        else if (name === "deleteTasksBulk") result = await deleteTasksBulkTool(args as never);
+        else if (name === "addTaskToCalendar") result = await addTaskToCalendarTool(args as never);
         else result = { error: `Tool desconocida: ${name}` } as unknown;
         convo.push({ role: "tool", content: JSON.stringify(result), tool_call_id: tc.id });
       } catch (e: unknown) {

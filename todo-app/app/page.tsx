@@ -14,6 +14,8 @@ import { AgentChatModal } from "@/components/AgentChatModal";
 import { FolderCreateModal } from "@/components/FolderCreateModal";
 import { TaskEditModal } from "@/components/TaskEditModal";
 import { useToast } from "@/components/Toast";
+import { Spinner } from "@/components/Spinner";
+import Dither from "@/components/Dither";
 import type { Tables } from "@/types/database";
 
 type Task = Tables["tasks"]["Row"];
@@ -128,21 +130,51 @@ export default function Home() {
     const map: Record<string, number> = {};
     let none = 0;
     let all = 0;
+    
+    // Función para encontrar todas las subcarpetas recursivamente
+    const findSubfolderIds = (parentId: string): string[] => {
+      const children = folders.filter(f => f.parent_id === parentId).map(f => f.id);
+      const allIds: string[] = [parentId, ...children];
+      children.forEach(childId => {
+        allIds.push(...findSubfolderIds(childId));
+      });
+      return allIds;
+    };
+    
     for (const t of tasks) {
       if (!t.completada) {
         all++;
         if (t.folder_id) {
           const fid = t.folder_id as unknown as string;
           map[fid] = (map[fid] ?? 0) + 1;
+          
+          // También incrementar contadores de carpetas padre
+          const parentFolder = folders.find(f => findSubfolderIds(f.id).includes(fid));
+          if (parentFolder && parentFolder.id !== fid) {
+            map[parentFolder.id] = (map[parentFolder.id] ?? 0) + 1;
+          }
         } else {
           none++;
         }
       }
     }
+    
+    // Para cada carpeta raíz, sumar contadores de sus subcarpetas
+    folders.forEach(folder => {
+      if (!folder.parent_id) {
+        const subfolderIds = findSubfolderIds(folder.id);
+        const directCount = map[folder.id] ?? 0;
+        const subfolderCount = subfolderIds
+          .filter(id => id !== folder.id)
+          .reduce((sum, id) => sum + (map[id] ?? 0), 0);
+        map[folder.id] = directCount + subfolderCount;
+      }
+    });
+    
     map["__none__"] = none;
     map["__all__"] = all;
     return map;
-  }, [tasks]);
+  }, [tasks, folders]);
 
   async function addTask() {
     const title = newTitle.trim();
@@ -199,8 +231,22 @@ export default function Home() {
         description: error.message ?? "Verifica que el campo 'completada' exista en la base de datos",
         variant: "error" 
       });
+    } else {
+      show({ title: nextCompleted ? "Tarea completada" : "Tarea marcada como pendiente", variant: "success" });
+      
+      // Si se completó, programar eliminación de la vista y base de datos después de 5 segundos
+      if (nextCompleted) {
+        setTimeout(async () => {
+          // Eliminar de la vista
+          setTasks((prev) => prev.filter((t) => t.id !== id));
+          // Eliminar de la base de datos (soft delete)
+          await supabase
+            .from("tasks")
+            .update({ deleted_at: new Date().toISOString() })
+            .eq("id", id);
+        }, 5000);
+      }
     }
-    else show({ title: nextCompleted ? "Tarea completada" : "Tarea marcada como pendiente", variant: "success" });
   }
 
   async function deleteTask(id: string) {
@@ -227,7 +273,74 @@ export default function Home() {
     }
   }
 
-  async function confirmTaskEdit(payload: { id: string; title: string; details: string | null; dueDateIso: string | null; priority: "low" | "medium" | "high" | null; category: "work" | "personal" | "shopping" | "health" | "other" | null }) {
+  async function deleteFolder(id: string) {
+    const folder = folders.find((f) => f.id === id);
+    if (!folder) return;
+
+    const taskCount = folderCounts[id] ?? 0;
+    
+    // Encontrar todas las subcarpetas (recursivamente)
+    const findSubfolders = (parentId: string): string[] => {
+      const directChildren = folders.filter(f => f.parent_id === parentId).map(f => f.id);
+      const allChildren: string[] = [...directChildren];
+      directChildren.forEach(childId => {
+        allChildren.push(...findSubfolders(childId));
+      });
+      return allChildren;
+    };
+    
+    const subfolderIds = findSubfolders(id);
+    const allFolderIds = [id, ...subfolderIds];
+    
+    // Validación: si tiene tareas, moverlas a "sin carpeta" primero
+    if (taskCount > 0) {
+      const { error: moveError } = await supabase
+        .from("tasks")
+        .update({ folder_id: null })
+        .in("folder_id", allFolderIds);
+      
+      if (moveError) {
+        show({ title: "Error al mover las tareas", description: moveError.message, variant: "error" });
+        return;
+      }
+    }
+
+    // Eliminar la carpeta y todas sus subcarpetas
+    const prev = folders;
+    setFolders((cur) => cur.filter((f) => !allFolderIds.includes(f.id)));
+    
+    // Si era la carpeta activa o alguna subcarpeta, cambiar a "Todas"
+    if (allFolderIds.includes(activeFolderId || "")) {
+      setActiveFolderId(null);
+    }
+
+    // Eliminar todas las carpetas (carpeta principal y subcarpetas)
+    const { error } = await supabase
+      .from("folders")
+      .delete()
+      .in("id", allFolderIds);
+    
+    if (error) {
+      setFolders(prev);
+      show({ title: "No se pudo eliminar la carpeta", variant: "error" });
+    } else {
+      show({ title: "Carpeta eliminada", variant: "success" });
+      // Refrescar tareas para actualizar los contadores
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth.user?.id;
+      if (userId) {
+        const { data: rows } = await supabase
+          .from("tasks")
+          .select("*")
+          .eq("user_id", userId)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false });
+        if (rows) setTasks(rows);
+      }
+    }
+  }
+
+  async function confirmTaskEdit(payload: { id: string; title: string; details: string | null; dueDateIso: string | null; priority: "low" | "medium" | "high" | null; category: "study" | "work" | "leisure" | "personal" | null }) {
     const prev = tasks;
     setTasks((cur) => cur.map((t) => (
       t.id === payload.id
@@ -255,35 +368,67 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh grid place-items-center bg-white text-black dark:bg-black dark:text-white">
-        <span className="opacity-70">Cargando…</span>
+      <div className="min-h-dvh grid place-items-center bg-black">
+        <Spinner />
       </div>
     );
   }
 
-  const visible = tasks.filter((t) => (
-    activeFolderId === "__none__" ? !t.folder_id : activeFolderId ? t.folder_id === activeFolderId : true
-  ));
+  const visible = tasks.filter((t) => {
+    if (activeFolderId === "__none__") {
+      return !t.folder_id;
+    }
+    if (!activeFolderId) {
+      return true; // "Todas"
+    }
+    // Si hay una carpeta activa, mostrar tareas de esa carpeta y sus subcarpetas
+    const findSubfolderIds = (parentId: string): string[] => {
+      const children = folders.filter(f => f.parent_id === parentId).map(f => f.id);
+      const allIds: string[] = [parentId, ...children];
+      children.forEach(childId => {
+        allIds.push(...findSubfolderIds(childId));
+      });
+      return allIds;
+    };
+    const folderIds = findSubfolderIds(activeFolderId);
+    return folderIds.includes(t.folder_id || "");
+  });
   const [open, done] = [visible.filter((t) => !t.completada), visible.filter((t) => t.completada)];
 
   return (
-    <div className="min-h-dvh bg-white text-black dark:bg-black dark:text-white">
-      {/* Navbar superior, separado del contenido */}
-      <div className="sticky top-0 z-20 w-full border-b border-neutral-200 bg-white/80 backdrop-blur dark:border-neutral-800 dark:bg-black/80">
-        <div className="mx-auto w-full max-w-5xl px-4 py-3 md:px-8 md:py-4">
-          <Navbar
-            displayName={displayName}
-            onSignOut={signOut}
-            pageSize={pageSize}
-            onChangePageSize={(n) => {
-              setPageSize(n);
-              setPage(1);
-            }}
-          />
-        </div>
+    <div className="relative min-h-dvh text-black dark:text-white overflow-hidden">
+      {/* Fondo dithered con ondas retro */}
+      <div className="fixed inset-0 z-0">
+        <Dither
+          waveColor={[0.5, 0.5, 0.5]}
+          disableAnimation={false}
+          enableMouseInteraction={true}
+          mouseRadius={0.3}
+          colorNum={4}
+          waveAmplitude={0.3}
+          waveFrequency={3}
+          waveSpeed={0.05}
+        />
       </div>
 
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-6 md:flex-row md:px-8 md:py-8">
+      {/* Contenido con efecto vidrio */}
+      <div className="relative z-10 min-h-dvh">
+        {/* Navbar superior con efecto glassmorphism */}
+        <div className="sticky top-0 z-20 w-full border-b border-white/20 bg-black/60 backdrop-blur-xl">
+          <div className="mx-auto w-full max-w-5xl px-4 py-2 md:px-8 md:py-2">
+            <Navbar
+              displayName={displayName}
+              onSignOut={signOut}
+              pageSize={pageSize}
+              onChangePageSize={(n) => {
+                setPageSize(n);
+                setPage(1);
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-6 md:flex-row md:px-8 md:py-8">
         <Sidebar
           folders={folders}
           counts={folderCounts}
@@ -296,12 +441,14 @@ export default function Home() {
             setFolderModalOpen(true);
           }}
           onEdit={editFolder}
+          onDelete={deleteFolder}
         />
 
         <FolderCreateModal
           open={folderModalOpen}
           onClose={() => setFolderModalOpen(false)}
-          onConfirm={async (name) => {
+          folders={folders}
+          onConfirm={async (name, parentId) => {
             setFolderModalOpen(false);
             const { data: auth } = await supabase.auth.getUser();
             const userId = auth.user?.id;
@@ -310,12 +457,13 @@ export default function Home() {
               id: crypto.randomUUID(),
               user_id: userId,
               name,
+              parent_id: parentId || null,
               created_at: new Date().toISOString(),
             } as Folder;
             setFolders((f) => [...f, optimistic]);
             const { data, error } = await supabase
               .from("folders")
-              .insert({ name, user_id: userId })
+              .insert({ name, user_id: userId, parent_id: parentId })
               .select()
               .single();
             if (error) {
@@ -331,71 +479,77 @@ export default function Home() {
 
         <main className="flex-1 md:max-w-none">
           <header className="mb-6 flex items-center justify-between">
-            <h1 className="text-2xl font-semibold md:text-3xl">
+            <h1 className="text-2xl font-semibold md:text-3xl text-white drop-shadow-lg">
               {folders.find((f) => f.id === activeFolderId)?.name || "Todas"}
             </h1>
           </header>
 
-          <TaskComposer value={newTitle} onChange={setNewTitle} onSubmit={addTask} />
+          <div className="rounded-2xl border border-white/30 bg-black/70 backdrop-blur-xl p-4 shadow-lg">
+            <TaskComposer value={newTitle} onChange={setNewTitle} onSubmit={addTask} />
+          </div>
 
           <section className="mt-6 space-y-2">
             {open.length === 0 ? (
-              <p className="opacity-60">No hay tareas pendientes.</p>
+              <p className="opacity-80 text-white">No hay tareas pendientes.</p>
             ) : (
-              open.map((t) => (
-                <TaskItem
-                  key={t.id}
-                  task={t}
-                  onToggle={toggleTask}
-                  onDelete={deleteTask}
-                  onOpenEdit={(task) => {
-                    setTaskEditing(task);
-                    setTaskEditOpen(true);
-                  }}
-                />
-              ))
+              <div className="space-y-2">
+                {open.map((t) => (
+                  <div key={t.id} className="rounded-xl border border-white/30 bg-black/70 backdrop-blur-xl shadow-lg">
+                    <TaskItem
+                      task={t}
+                      onToggle={toggleTask}
+                      onDelete={deleteTask}
+                      onOpenEdit={(task) => {
+                        setTaskEditing(task);
+                        setTaskEditOpen(true);
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
             )}
           </section>
 
           {done.length > 0 ? (
             <>
-              <h2 className="mt-8 mb-2 text-sm font-semibold opacity-70">Completadas</h2>
+              <h2 className="mt-8 mb-2 text-sm font-semibold opacity-80 text-white">Completadas</h2>
               <section className="space-y-2">
                 {done.map((t) => (
-                  <TaskItem
-                    key={t.id}
-                    task={t}
-                    onToggle={toggleTask}
-                    onDelete={deleteTask}
-                    onOpenEdit={(task) => {
-                      setTaskEditing(task);
-                      setTaskEditOpen(true);
-                    }}
-                  />
+                  <div key={t.id} className="rounded-xl border border-white/30 bg-black/70 backdrop-blur-xl opacity-70 shadow-lg">
+                    <TaskItem
+                      task={t}
+                      onToggle={toggleTask}
+                      onDelete={deleteTask}
+                      onOpenEdit={(task) => {
+                        setTaskEditing(task);
+                        setTaskEditOpen(true);
+                      }}
+                    />
+                  </div>
                 ))}
               </section>
             </>
           ) : null}
 
           {visible.length > pageSize ? (
-            <div className="mt-6 flex items-center justify-between text-sm opacity-70">
+            <div className="mt-6 flex items-center justify-between text-sm opacity-80 text-white">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="rounded-lg border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+                className="rounded-xl border border-white/30 bg-black/70 backdrop-blur-xl px-3 py-1.5 text-white transition-colors hover:bg-black/80 shadow-lg"
               >
                 Anterior
               </button>
               <span>Página {page}</span>
               <button
                 onClick={() => setPage((p) => p + 1)}
-                className="rounded-lg border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+                className="rounded-xl border border-white/30 bg-black/70 backdrop-blur-xl px-3 py-1.5 text-white transition-colors hover:bg-black/80 shadow-lg"
               >
                 Siguiente
               </button>
             </div>
           ) : null}
         </main>
-        
+        </div>
       </div>
       {!agentOpen && <BotFab onClick={() => setAgentOpen(true)} />}
       <AgentChatModal

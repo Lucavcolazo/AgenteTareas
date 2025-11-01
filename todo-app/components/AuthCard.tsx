@@ -108,7 +108,7 @@ export function AuthCard({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="rounded-2xl border border-neutral-200 bg-white/80 backdrop-blur-sm p-6 shadow-lg dark:border-neutral-800 dark:bg-neutral-900/80 md:p-8"
+          className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl p-6 shadow-lg dark:border-white/5 dark:bg-black/40 md:p-8"
         >
           <AnimatePresence mode="wait">
             <motion.div
@@ -128,8 +128,8 @@ export function AuthCard({
                     speed={60}
                     maxIterations={30}
                     sequential={true}
-                    className="text-neutral-900 dark:text-neutral-100"
-                    encryptedClassName="opacity-40 text-neutral-900 dark:text-neutral-100"
+                    className="text-white"
+                    encryptedClassName="opacity-40 text-white"
                     parentClassName="cursor-default"
                   />
                 </div>
@@ -148,7 +148,7 @@ export function AuthCard({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={isTransitioning}
-                    className="w-full rounded-xl border border-neutral-300 bg-transparent px-4 py-3 text-sm outline-none transition-all focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200 disabled:opacity-50 dark:border-neutral-700 dark:focus:border-neutral-600 dark:focus:ring-neutral-800 md:text-base"
+                    className="w-full rounded-xl border border-white/10 bg-black/20 backdrop-blur-sm px-4 py-3 text-sm text-white placeholder:text-white/60 outline-none transition-all focus:border-white/30 focus:ring-2 focus:ring-white/20 disabled:opacity-50 md:text-base"
                   />
                 </motion.div>
                 
@@ -164,7 +164,7 @@ export function AuthCard({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={isTransitioning}
-                    className="w-full rounded-xl border border-neutral-300 bg-transparent px-4 py-3 text-sm outline-none transition-all focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200 disabled:opacity-50 dark:border-neutral-700 dark:focus:border-neutral-600 dark:focus:ring-neutral-800 md:text-base"
+                    className="w-full rounded-xl border border-white/10 bg-black/20 backdrop-blur-sm px-4 py-3 text-sm text-white placeholder:text-white/60 outline-none transition-all focus:border-white/30 focus:ring-2 focus:ring-white/20 disabled:opacity-50 md:text-base"
                   />
                 </motion.div>
                 
@@ -173,7 +173,7 @@ export function AuthCard({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2, duration: 0.3 }}
                   disabled={loading || isTransitioning}
-                  className="w-full rounded-xl bg-black px-4 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50 dark:bg-white dark:text-black md:text-base"
+                  className="w-full rounded-xl bg-white px-4 py-3 text-sm font-medium text-black transition-opacity hover:opacity-90 disabled:opacity-50 md:text-base"
                 >
                   {loading ? (mode === "login" ? "Entrando…" : "Registrando…") : mode === "login" ? "Entrar" : "Registrarse"}
                 </motion.button>
@@ -185,7 +185,7 @@ export function AuthCard({
                   transition={{ delay: 0.25, duration: 0.3 }}
                   onClick={signInWithGoogle}
                   disabled={isTransitioning}
-                  className="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm transition-colors hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:hover:bg-neutral-800 md:text-base"
+                  className="w-full rounded-xl border border-white/20 px-4 py-3 text-sm text-white transition-colors hover:bg-white/10 disabled:opacity-50 md:text-base"
                 >
                   {mode === "login" ? "Entrar con Google" : "Continuar con Google"}
                 </motion.button>
@@ -208,13 +208,13 @@ export function AuthCard({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.3 }}
-                className="mt-6 text-center text-sm opacity-70"
+                className="mt-6 text-center text-sm opacity-80 text-white"
               >
                 {mode === "login" ? (
                   <>
                     ¿No tienes cuenta?{" "}
                     <button
-                      className="font-medium underline transition-colors hover:text-neutral-900 dark:hover:text-neutral-100"
+                      className="font-medium underline transition-colors hover:text-white/80"
                       onClick={() => handleModeChange("register")}
                       disabled={isTransitioning}
                     >
@@ -225,7 +225,7 @@ export function AuthCard({
                   <>
                     ¿Ya tienes cuenta?{" "}
                     <button
-                      className="font-medium underline transition-colors hover:text-neutral-900 dark:hover:text-neutral-100"
+                      className="font-medium underline transition-colors hover:text-white/80"
                       onClick={() => handleModeChange("login")}
                       disabled={isTransitioning}
                     >

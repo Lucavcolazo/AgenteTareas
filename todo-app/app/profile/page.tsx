@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { GoogleCalendarButton } from "@/components/GoogleCalendarButton";
+import { Spinner } from "@/components/Spinner";
 import { ArrowLeft, Calendar, Mail, Clock, LogOut } from "lucide-react";
 
 export default function ProfilePage() {
@@ -85,8 +86,8 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-sm opacity-60">Cargando...</div>
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <Spinner />
       </div>
     );
   }
@@ -99,69 +100,71 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-4 md:py-8">
-      <button
-        onClick={() => router.push("/")}
-        className="mb-6 flex items-center gap-2 text-sm opacity-70 hover:opacity-100"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        <span>Volver</span>
-      </button>
+    <div className="min-h-screen bg-black text-white">
+      <div className="mx-auto max-w-2xl px-4 py-4 md:py-8">
+        <button
+          onClick={() => router.push("/")}
+          className="mb-6 flex items-center gap-2 text-sm text-white opacity-70 hover:opacity-100"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Volver</span>
+        </button>
 
-      <div className="space-y-4 md:space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Perfil</h1>
-          <p className="mt-1 text-sm opacity-60">Información de tu cuenta</p>
-        </div>
+        <div className="space-y-4 md:space-y-6">
+          <div>
+            <h1 className="text-2xl font-semibold text-white">Perfil</h1>
+            <p className="mt-1 text-sm text-white opacity-60">Información de tu cuenta</p>
+          </div>
 
-        <div className="space-y-4 rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-black">
+          <div className="space-y-4 rounded-xl border border-white/10 bg-black p-6">
           <div className="flex items-center gap-4">
-            <div className="grid h-16 w-16 place-items-center rounded-full bg-neutral-200 text-xl font-semibold text-black dark:bg-neutral-800 dark:text-white">
+            <div className="grid h-16 w-16 place-items-center rounded-full bg-white text-xl font-semibold text-black">
               {userInfo.displayName.charAt(0).toUpperCase()}
             </div>
             <div>
-              <h2 className="text-lg font-medium">{userInfo.displayName}</h2>
-              <div className="mt-1 flex items-center gap-2 text-sm opacity-60">
+              <h2 className="text-lg font-medium text-white">{userInfo.displayName}</h2>
+              <div className="mt-1 flex items-center gap-2 text-sm text-white opacity-60">
                 <Mail className="h-4 w-4" />
                 <span>{userInfo.email}</span>
               </div>
             </div>
           </div>
 
-          <div className="border-t border-neutral-200 pt-4 dark:border-neutral-800">
-            <div className="flex items-center gap-2 text-sm opacity-70">
+          <div className="border-t border-white/10 pt-4">
+            <div className="flex items-center gap-2 text-sm text-white opacity-70">
               <Clock className="h-4 w-4" />
               <span>Cuenta creada el {userInfo.createdAt}</span>
             </div>
           </div>
         </div>
 
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 md:p-6 dark:border-neutral-800 dark:bg-black">
+        <div className="rounded-xl border border-white/10 bg-black p-4 md:p-6">
           <div className="mb-4 flex items-center gap-2">
-            <Calendar className="h-5 w-5 opacity-70" />
-            <h3 className="text-lg font-medium">Google Calendar</h3>
+            <Calendar className="h-5 w-5 text-white opacity-70" />
+            <h3 className="text-lg font-medium text-white">Google Calendar</h3>
           </div>
-          <p className="mb-4 text-sm opacity-60">
+          <p className="mb-4 text-sm text-white opacity-60">
             Conecta tu cuenta de Google Calendar para agregar eventos automáticamente cuando creas tareas con fecha y hora.
           </p>
           <GoogleCalendarButton />
           {isCalendarConnected && (
-            <p className="mt-3 text-sm text-green-600 dark:text-green-400">
+            <p className="mt-3 text-sm text-green-400">
               ✓ Calendar conectado correctamente
             </p>
           )}
         </div>
 
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 md:p-6 dark:border-neutral-800 dark:bg-black">
-          <h3 className="mb-4 text-lg font-medium">Sesión</h3>
+        <div className="rounded-xl border border-white/10 bg-black p-4 md:p-6">
+          <h3 className="mb-4 text-lg font-medium text-white">Sesión</h3>
           <button
             onClick={handleSignOut}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-300 bg-transparent px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-400 bg-transparent px-4 py-3 text-sm font-medium text-red-400 transition-colors hover:bg-red-950"
           >
             <LogOut className="h-4 w-4" />
             <span>Cerrar sesión</span>
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

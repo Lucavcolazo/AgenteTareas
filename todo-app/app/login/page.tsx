@@ -37,21 +37,21 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-dvh grid place-items-center bg-white px-4 text-black dark:bg-black dark:text-white">
+    <div className="min-h-dvh grid place-items-center bg-black px-4 text-white">
       <div className="flex w-full max-w-3xl flex-col items-center text-center">
-        <h1 className="whitespace-nowrap text-3xl font-mono font-semibold tracking-wide text-neutral-800 dark:text-neutral-200 sm:text-5xl md:text-6xl">
+        <h1 className="whitespace-nowrap text-3xl font-mono font-semibold tracking-wide text-white sm:text-5xl md:text-6xl">
           <DecryptedText
             text="Bienvenido a Task IA"
             animateOn="view"
-            revealDirection="center"
+            revealDirection="start"
             speed={80}
             maxIterations={25}
             sequential={true}
-            className="text-neutral-800 dark:text-neutral-200"
-            encryptedClassName="opacity-40 text-neutral-800 dark:text-neutral-200"
+            className="text-white"
+            encryptedClassName="opacity-40 text-white"
           />
         </h1>
-        <div className="mt-8 w-full sm:mt-12">
+        <div className="mt-8 w-full flex justify-center sm:mt-12">
           <AuthCard 
             defaultMode="login" 
             singleMode 

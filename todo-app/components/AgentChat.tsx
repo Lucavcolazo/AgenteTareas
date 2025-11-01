@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { Mic, MicOff, ArrowLeft } from "lucide-react";
 import DOMPurify from "dompurify";
+import { Spinner } from "@/components/Spinner";
 
 // Función para sanitizar el contenido del LLM antes de renderizar
 // Elimina cualquier código HTML/JavaScript malicioso y escapa caracteres peligrosos
@@ -317,14 +318,14 @@ export function AgentChat({ displayName, onTaskChange, onClose }: { displayName?
   }
 
   return (
-    <div className="flex h-full w-full flex-col rounded-none border-0 bg-white dark:bg-black md:rounded-xl md:border md:border-neutral-200 dark:md:border-neutral-800">
+    <div className="flex h-full w-full flex-col rounded-none border-0 bg-black md:rounded-xl md:border md:border-white/10">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-neutral-200 px-3 py-2.5 dark:border-neutral-800 md:px-4 md:py-3">
+      <div className="flex items-center justify-between border-b border-white/10 px-3 py-2.5 md:px-4 md:py-3">
         <div className="flex items-center gap-3">
           {onClose && (
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-900 md:hidden"
+              className="rounded-lg p-1.5 text-white transition-colors hover:bg-white/10 md:hidden"
               title="Cerrar chat"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -332,7 +333,7 @@ export function AgentChat({ displayName, onTaskChange, onClose }: { displayName?
           )}
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-green-500"></div>
-            <div className="text-xs font-medium md:text-sm">Asistente de tareas</div>
+            <div className="text-xs font-medium text-white md:text-sm">Asistente de tareas</div>
           </div>
         </div>
         {messages.length > 0 && (
@@ -343,7 +344,7 @@ export function AgentChat({ displayName, onTaskChange, onClose }: { displayName?
               localStorage.setItem("agent_session_id", newSessionId);
               setMessages([]);
             }}
-            className="rounded-lg px-2 py-1 text-[10px] text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-900 md:text-xs"
+            className="rounded-lg px-2 py-1 text-[10px] text-white/70 transition-colors hover:bg-white/10 md:text-xs"
             title="Nueva conversación"
           >
             <span className="hidden md:inline">Nueva conversación</span>
@@ -356,13 +357,13 @@ export function AgentChat({ displayName, onTaskChange, onClose }: { displayName?
       <div ref={messagesContainerRef} className="flex-1 min-h-0 space-y-3 overflow-y-auto overflow-x-hidden px-2 py-3 md:space-y-4 md:px-4 md:py-4" style={{ WebkitOverflowScrolling: 'touch' }}>
         {loadingHistory ? (
           <div className="flex items-center justify-center py-8">
-            <div className="text-sm opacity-60">Cargando historial…</div>
+            <Spinner />
           </div>
         ) : messages.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
-              <div className="mb-2 text-lg opacity-60">👋 Hola, {displayName}!</div>
-              <div className="text-sm opacity-50">Pregúntame sobre tus tareas o pídeme que haga algo.</div>
+              <div className="mb-2 text-lg text-white opacity-60">👋 Hola, {displayName}!</div>
+              <div className="text-sm text-white opacity-50">Pregúntame sobre tus tareas o pídeme que haga algo.</div>
             </div>
           </div>
         ) : (
@@ -375,8 +376,8 @@ export function AgentChat({ displayName, onTaskChange, onClose }: { displayName?
                 <div
                   className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs break-words overflow-hidden md:max-w-[75%] md:px-4 md:py-2.5 md:text-sm ${
                     m.role === "user"
-                      ? "bg-black text-white dark:bg-white dark:text-black"
-                      : "bg-neutral-100 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100"
+                      ? "bg-white text-black"
+                      : "bg-white/10 text-white"
                   }`}
                   style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
                 >
@@ -391,11 +392,11 @@ export function AgentChat({ displayName, onTaskChange, onClose }: { displayName?
             ))}
             {loading && (
               <div className="flex justify-start">
-                <div className="rounded-2xl bg-neutral-100 px-4 py-2.5 text-sm dark:bg-neutral-900">
+                <div className="rounded-2xl bg-white/10 px-4 py-2.5 text-sm">
                   <div className="flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-neutral-400"></span>
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-neutral-400 [animation-delay:0.2s]"></span>
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-neutral-400 [animation-delay:0.4s]"></span>
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/60"></span>
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/60 [animation-delay:0.2s]"></span>
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/60 [animation-delay:0.4s]"></span>
                   </div>
                 </div>
               </div>
@@ -407,7 +408,7 @@ export function AgentChat({ displayName, onTaskChange, onClose }: { displayName?
       </div>
 
       {/* Input area */}
-      <div className="border-t border-neutral-200 bg-white px-2 py-2 dark:border-neutral-800 dark:bg-black md:px-4 md:py-3">
+      <div className="border-t border-white/10 bg-black px-2 py-2 md:px-4 md:py-3">
         <div className="flex gap-1.5 md:gap-2">
           <input
             value={input}
@@ -420,7 +421,7 @@ export function AgentChat({ displayName, onTaskChange, onClose }: { displayName?
             }}
             placeholder="Escribe una instrucción…"
             disabled={loading || isListening}
-            className="flex-1 rounded-xl border border-neutral-300 bg-transparent px-3 py-2 text-xs outline-none transition-all focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200 disabled:opacity-50 dark:border-neutral-700 dark:focus:border-neutral-600 dark:focus:ring-neutral-800 md:px-4 md:py-2.5 md:text-sm"
+            className="flex-1 rounded-xl border border-white/20 bg-black/50 backdrop-blur-sm px-3 py-2 text-xs text-white placeholder:text-white/60 outline-none transition-all focus:border-white/40 focus:ring-2 focus:ring-white/20 disabled:opacity-50 md:px-4 md:py-2.5 md:text-sm"
           />
           {typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition) ? (
             <button
@@ -429,7 +430,7 @@ export function AgentChat({ displayName, onTaskChange, onClose }: { displayName?
               className={`rounded-xl px-2.5 py-2 text-xs font-medium transition-opacity disabled:opacity-50 hover:opacity-90 md:px-3 md:py-2.5 md:text-sm ${
                 isListening
                   ? "bg-red-600 text-white"
-                  : "border border-neutral-300 bg-transparent text-neutral-700 dark:border-neutral-700 dark:text-neutral-300"
+                  : "border border-white/20 bg-black/50 text-white"
               }`}
               title={isListening ? "Detener grabación" : "Grabar con voz"}
             >
@@ -439,7 +440,7 @@ export function AgentChat({ displayName, onTaskChange, onClose }: { displayName?
           <button
             onClick={send}
             disabled={loading || !input.trim() || isListening}
-            className="rounded-xl bg-black px-4 py-2 text-xs font-medium text-white transition-opacity disabled:opacity-50 hover:opacity-90 dark:bg-white dark:text-black md:px-5 md:py-2.5 md:text-sm"
+            className="rounded-xl bg-white px-4 py-2 text-xs font-medium text-black transition-opacity disabled:opacity-50 hover:opacity-90 md:px-5 md:py-2.5 md:text-sm"
           >
             Enviar
           </button>
